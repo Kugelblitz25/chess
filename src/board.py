@@ -11,12 +11,8 @@ def loc_to_notation(loc: int) -> str:
 
 class Board:
     def __init__(self, fen: Optional[str] = None, turn: bool = False) -> None:
-        self.board: list[list[Piece | None]] = [
-            [None] * 8 for _ in range(8)
-        ]  # 8x8 chess board initialized with zeros
-        self.fboard: list[list[set[Piece]]] = [
-            [set() for _ in range(8)] for _ in range(8)
-        ]
+        self.board: list[Piece | None] = [None] * 64
+        self.fboard: list[set[Piece]] = [set() for _ in range(64)]
         if fen:
             kings, pieces = self.load_fen(fen)
             self.turn = turn
@@ -31,12 +27,11 @@ class Board:
         else:
             self.kings = [kings[0], kings[1]]
 
-        for rank in range(8):
-            for file in range(8):
-                piece = self.board[rank][file]
-                if piece is None:
-                    continue
-                self.recalc_fboard(piece)
+        for loc in range(64):
+            piece = self.board[loc]
+            if piece is None:
+                continue
+            self.recalc_fboard(piece)
 
     def load_fen(self, fen: str) -> tuple[list[King], list[list[Piece]]]:
         board_state = fen.split(" ")[0]
@@ -56,29 +51,27 @@ class Board:
                     pieces[color].append(piece)
                     if isinstance(piece, King):
                         kings.append(piece)
-                    self.board[r][file] = piece
+                    self.board[loc] = piece
                     file += 1
         return kings, pieces
 
     def setup_starting_position(self) -> tuple[list[King], list[list[Piece]]]:
         return self.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
-    def does_blocks_check(self, piece: Piece, to_file: int, to_rank: int) -> bool:
+    def does_blocks_check(self, piece: Piece, to_loc: int) -> bool:
         king = self.kings[piece.color]
-        king_file, king_rank = king.loc >> 3, king.loc & 7
 
         if len(king.checked_by) != 1:
             return isinstance(piece, King)
 
         attacker = king.checked_by[0]
-        attacker_file, attacker_rank = attacker.loc >> 3, attacker.loc & 7
-        if (attacker_file, attacker_rank) == (to_file, to_rank):
+        if to_loc == attacker.loc:
             return True
 
-        df = king_file - attacker_file
-        dr = king_rank - attacker_rank
-        df_dest = to_file - attacker_file
-        dr_dest = to_rank - attacker_rank
+        df = (king.loc >> 3) - (attacker.loc >> 3)
+        dr = (king.loc & 7) - (attacker.loc & 7)
+        df_dest = (to_loc >> 3) - (attacker.loc >> 3)
+        dr_dest = (to_loc & 7) - (attacker.loc & 7)
 
         if df * dr_dest != dr * df_dest:
             return False
@@ -90,52 +83,49 @@ class Board:
 
         return 0 < t < 1
 
-    def is_own(self, piece: Piece, file: int, rank: int) -> bool:
-        target = self.board[rank][file]
+    def is_own(self, piece: Piece, loc: int) -> bool:
+        target = self.board[loc]
         return target is not None and target.color == piece.color
 
-    def is_threatened(self, piece: Piece, file: int, rank: int) -> bool:
-        for attacker in self.fboard[rank][file]:
+    def is_threatened(self, piece: Piece, loc: int) -> bool:
+        for attacker in self.fboard[loc]:
             if attacker.color != piece.color:
                 return True
         return False
 
     def recalc_fboard(self, piece: Piece) -> None:
         for loc in piece.ctrl_locs:
-            file = loc >> 3
-            rank = loc & 7
-            self.fboard[rank][file].discard(piece)
+            self.fboard[loc].discard(piece)
+
         self.navl_moves[piece.color] -= piece.navl_moves
         piece.ctrl_locs.clear()
+
         if piece.captured:
             return
         king = self.kings[piece.color]
         count = 0
-        for file, rank in piece.gen_moves(self.board):
-            if king.is_checked and not self.does_blocks_check(piece, file, rank):
+        for loc in piece.gen_moves(self.board):
+            if king.is_checked and not self.does_blocks_check(piece, loc):
                 continue
-            if piece is king and self.is_threatened(piece, file, rank):
+            if piece is king and self.is_threatened(piece, loc):
                 continue
-            piece.ctrl_locs.append((file << 3) | rank)
-            self.fboard[rank][file].add(piece)
-            if self.is_own(piece, file, rank):
+            piece.ctrl_locs.append(loc)
+            self.fboard[loc].add(piece)
+            if self.is_own(piece, loc):
                 count += 1
         self.navl_moves[piece.color] += count
         piece.navl_moves = count
 
-    def list_moves(self, piece: Piece) -> list[tuple[int, int]]:
+    def list_moves(self, piece: Piece) -> list[int]:
         moves = []
         for move in piece.ctrl_locs:
-            move_file = move >> 3
-            move_rank = move & 7
-            if not self.is_own(piece, move_file, move_rank):
-                moves.append((move_file, move_rank))
+            if not self.is_own(piece, move):
+                moves.append(move)
         return moves
 
     def is_in_check(self, king: King) -> bool:
-        king_file, king_rank = king.loc >> 3, king.loc & 7
         cheked_by: list[Piece] = []
-        for attacker in self.fboard[king_rank][king_file]:
+        for attacker in self.fboard[king.loc]:
             if attacker.color != king.color:
                 cheked_by.append(attacker)
         king.checked_by = cheked_by
@@ -143,17 +133,17 @@ class Board:
             return True
         return False
 
-    def move_piece(self, piece: Piece, to_file: int, to_rank: int) -> None:
+    def move_piece(self, piece: Piece, to_loc: int) -> None:
         from_file, from_rank = piece.loc >> 3, piece.loc & 7
-        target = self.board[to_rank][to_file]
+        target = self.board[to_loc]
 
-        self.board[to_rank][to_file] = piece
-        piece.loc = (to_file << 3) | to_rank
+        dst_ctrls = self.fboard[to_loc].copy()
+        src_ctrls = self.fboard[piece.loc].copy()
+
+        self.board[to_loc] = piece
+        self.board[piece.loc] = None
+        piece.loc = to_loc
         piece.has_moved = True
-        self.board[from_rank][from_file] = None
-
-        dst_ctrls = self.fboard[to_rank][to_file].copy()
-        src_ctrls = self.fboard[from_rank][from_file].copy()
 
         self.recalc_fboard(piece)
         if target is not None:

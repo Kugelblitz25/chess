@@ -12,26 +12,27 @@ class Game:
     def is_end(self) -> bool:
         return self.board.navl_moves[self.turn] == 0
 
-    def notation_to_index(self, notation: str) -> tuple[int, int]:
+    def notation_to_loc(self, notation: str) -> int:
         file = ord(notation[0].lower()) - ord("a")
         rank = 8 - int(notation[1])
-        return file, rank
+        return (file << 3) | rank
 
-    def index_to_notation(self, file: int, rank: int) -> str:
+    def index_to_notation(self, loc: int) -> str:
+        file, rank = loc >> 3, loc & 7
         return f"{chr(file + ord('a'))}{8 - rank}"
 
-    def get_file_and_rank(self) -> tuple[int, int]:
+    def get_file_and_rank(self) -> int:
         while True:
             loc = input("Enter position (e.g., e2): ").strip().lower()
             if not (len(loc) == 2 and loc[0] in "abcdefgh" and loc[1] in "12345678"):
                 print("Invalid input. Please enter a valid position like 'e2'.")
                 continue
-            return self.notation_to_index(loc)
+            return self.notation_to_loc(loc)
 
     def list_moves(self) -> None:
         while True:
-            file, rank = self.get_file_and_rank()
-            piece = self.board.board[rank][file]
+            loc = self.get_file_and_rank()
+            piece = self.board.board[loc]
             if piece is None:
                 print("No piece at the given location.")
                 continue
@@ -44,15 +45,15 @@ class Game:
             print("No valid moves for this piece.")
             return
         print("Valid moves:")
-        for move_file, move_rank in moves:
-            notation = self.index_to_notation(move_file, move_rank)
+        for move in moves:
+            notation = self.index_to_notation(move)
             print(notation, end=" ")
         print()
 
     def move(self) -> bool:
         while True:
-            from_file, from_rank = self.get_file_and_rank()
-            piece = self.board.board[from_rank][from_file]
+            src = self.get_file_and_rank()
+            piece = self.board.board[src]
             if piece is None:
                 print("No piece at the given location. Choose another piece.")
                 continue
@@ -64,24 +65,23 @@ class Game:
                 print("No valid moves for this piece. Choose another piece.")
                 continue
             print("Valid moves:")
-            for move_file, move_rank in moves:
-                notation = self.index_to_notation(move_file, move_rank)
+            for move in moves:
+                notation = self.index_to_notation(move)
                 print(notation, end=" ")
             print()
             break
 
         while True:
-            to_file, to_rank = self.get_file_and_rank()
-            target = self.board.board[to_rank][to_file]
-            if target is not None and target.color == piece.color:
+            dst = self.get_file_and_rank()
+            if self.board.is_own(piece, dst):
                 print("Cannot capture your own piece.")
                 continue
-            if (to_file, to_rank) not in moves:
+            if dst not in moves:
                 print("Invalid move. Please choose a valid move.")
                 continue
             break
 
-        self.board.move_piece(piece, to_file, to_rank)
+        self.board.move_piece(piece, dst)
         self.turn = not self.turn
 
         if self.is_end:

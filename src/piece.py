@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from typing import Iterator, Optional
 
 
-type Board = list[list["Piece | None"]]
+type Board = list["Piece | None"]
 
 
 @dataclass(eq=False)
@@ -18,66 +18,72 @@ class Piece(ABC):
     navl_moves: int = 0
 
     @abstractmethod
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         pass
 
-    def validate_move(
-        self, file: int, rank: int, board: Board
-    ) -> tuple[Optional[tuple[int, int]], bool]:
-        if not (0 <= file < 8 and 0 <= rank < 8):
+    def validate_move(self, loc: int, board: Board) -> tuple[Optional[int], bool]:
+        if not (0 <= loc < 64):
             return (None, True)
-        target = board[rank][file]
+        target = board[loc]
         if target is None:
-            return ((file, rank), False)
-        return ((file, rank), True)
+            return (loc, False)
+        return (loc, True)
 
 
 class Pawn(Piece):
     notation = "P"
     symbol = ("♟", "♙")
 
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         direction = 1 if self.color else -1
         next_rank = (self.loc & 7) + direction
         file = self.loc >> 3
-        if 0 <= next_rank < 8 and board[next_rank][file] is None:
-            yield (file, next_rank)
 
-            if not self.has_moved and board[next_rank + direction][file] is None:
-                yield (file, next_rank + direction)
+        if 0 <= next_rank < 8:
+            next_loc = (file << 3) | next_rank
+            if board[next_loc] is None:
+                yield next_loc
+
+            if not self.has_moved:
+                double_loc = (file << 3) | (next_rank + direction)
+                if board[double_loc] is None:
+                    yield double_loc
 
             if file - 1 >= 0:
-                target = board[next_rank][file - 1]
+                left_loc = ((file - 1) << 3) | next_rank
+                target = board[left_loc]
                 if target is not None and target.color != self.color:
-                    yield (file - 1, next_rank)
+                    yield left_loc
 
             if file + 1 < 8:
-                target = board[next_rank][file + 1]
+                right_loc = ((file + 1) << 3) | next_rank
+                target = board[right_loc]
                 if target is not None and target.color != self.color:
-                    yield (file + 1, next_rank)
+                    yield right_loc
 
 
 class Knight(Piece):
     notation = "N"
     symbol = ("♞", "♘")
 
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         file = self.loc >> 3
         rank = self.loc & 7
-        knight_moves = [
-            (file + 2, rank + 1),
-            (file + 2, rank - 1),
-            (file - 2, rank + 1),
-            (file - 2, rank - 1),
-            (file + 1, rank + 2),
-            (file + 1, rank - 2),
-            (file - 1, rank + 2),
-            (file - 1, rank - 2),
+        knight_offsets = [
+            (2, 1),
+            (2, -1),
+            (-2, 1),
+            (-2, -1),
+            (1, 2),
+            (1, -2),
+            (-1, 2),
+            (-1, -2),
         ]
-        for f, r in knight_moves:
-            move, _ = self.validate_move(f, r, board)
-            if move is not None:
-                yield move
+        for df, dr in knight_offsets:
+            f, r = file + df, rank + dr
+            if 0 <= f < 8 and 0 <= r < 8:
+                loc = (f << 3) | r
+                yield loc
 
 
 class Rook(Piece):
@@ -85,7 +91,7 @@ class Rook(Piece):
     symbol = ("♜", "♖")
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         rank = self.loc & 7
         file = self.loc >> 3
         for df, dr in self.directions:
@@ -93,7 +99,8 @@ class Rook(Piece):
             while True:
                 f += df
                 r += dr
-                move, end = self.validate_move(f, r, board)
+                loc = (f << 3) | r
+                move, end = self.validate_move(loc, board)
                 if move is not None:
                     yield move
                 if end:
@@ -105,7 +112,7 @@ class Bishop(Piece):
     symbol = ("♝", "♗")
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
 
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         rank = self.loc & 7
         file = self.loc >> 3
 
@@ -114,7 +121,8 @@ class Bishop(Piece):
             while True:
                 f += df
                 r += dr
-                move, end = self.validate_move(f, r, board)
+                loc = (f << 3) | r
+                move, end = self.validate_move(loc, board)
                 if move is not None:
                     yield move
                 if end:
@@ -126,7 +134,7 @@ class Queen(Piece):
     symbol = ("♛", "♕")
     directions = Rook.directions + Bishop.directions
 
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         rank = self.loc & 7
         file = self.loc >> 3
         for df, dr in self.directions:
@@ -134,7 +142,8 @@ class Queen(Piece):
             while True:
                 f += df
                 r += dr
-                move, end = self.validate_move(f, r, board)
+                loc = (f << 3) | r
+                move, end = self.validate_move(loc, board)
                 if move is not None:
                     yield move
                 if end:
@@ -150,13 +159,14 @@ class King(Piece):
     is_checked: bool = False
     checked_by: list[Piece] = field(default_factory=list[Piece])
 
-    def gen_moves(self, board: Board) -> Iterator[tuple[int, int]]:
+    def gen_moves(self, board: Board) -> Iterator[int]:
         rank = self.loc & 7
         file = self.loc >> 3
         for df, dr in self.directions:
             f = file + df
             r = rank + dr
-            move, _ = self.validate_move(f, r, board)
+            loc = (f << 3) | r
+            move, _ = self.validate_move(loc, board)
             if move is not None:
                 yield move
 

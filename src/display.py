@@ -5,7 +5,8 @@ def display_board(board: Board) -> None:
     for rank in range(8):
         row = f"{8 - rank} "
         for file in range(8):
-            piece = board.board[rank][file]
+            loc = (file << 3) | rank
+            piece = board.board[loc]
             if piece is None:
                 row += ". "
             else:
