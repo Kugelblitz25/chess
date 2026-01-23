@@ -6,7 +6,7 @@ from typing import Iterator, Optional
 type Board = list[list["Piece | None"]]
 
 
-@dataclass
+@dataclass(eq=False)
 class Piece(ABC):
     color: bool  # True for white, False for black
     loc: int
@@ -43,6 +43,9 @@ class Pawn(Piece):
         if 0 <= next_rank < 8 and board[next_rank][file] is None:
             yield (file, next_rank)
 
+            if not self.has_moved and board[next_rank + direction][file] is None:
+                yield (file, next_rank + direction)
+
             if file - 1 >= 0:
                 target = board[next_rank][file - 1]
                 if target is not None and target.color != self.color:
@@ -52,10 +55,6 @@ class Pawn(Piece):
                 target = board[next_rank][file + 1]
                 if target is not None and target.color != self.color:
                     yield (file + 1, next_rank)
-
-        if not self.has_moved and board[next_rank][file] is None:
-            next_rank += direction
-            yield (file, next_rank)
 
 
 class Knight(Piece):
