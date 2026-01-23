@@ -14,8 +14,8 @@ class Board:
         self.board: list[list[Piece | None]] = [
             [None] * 8 for _ in range(8)
         ]  # 8x8 chess board initialized with zeros
-        self.fboard: list[list[list[Piece]]] = [
-            [[] for _ in range(8)] for _ in range(8)
+        self.fboard: list[list[set[Piece]]] = [
+            [set() for _ in range(8)] for _ in range(8)
         ]
         if fen:
             kings, pieces = self.load_fen(fen)
@@ -104,7 +104,7 @@ class Board:
         for loc in piece.ctrl_locs:
             file = loc >> 3
             rank = loc & 7
-            self.fboard[rank][file].remove(piece)
+            self.fboard[rank][file].discard(piece)
         self.navl_moves[piece.color] -= piece.navl_moves
         piece.ctrl_locs.clear()
         if piece.captured:
@@ -117,7 +117,7 @@ class Board:
             if piece is king and self.is_threatened(piece, file, rank):
                 continue
             piece.ctrl_locs.append((file << 3) | rank)
-            self.fboard[rank][file].append(piece)
+            self.fboard[rank][file].add(piece)
             if self.is_own(piece, file, rank):
                 count += 1
         self.navl_moves[piece.color] += count
@@ -152,8 +152,8 @@ class Board:
         piece.has_moved = True
         self.board[from_rank][from_file] = None
 
-        dst_ctrls = self.fboard[to_rank][to_file][:]
-        src_ctrls = self.fboard[from_rank][from_file][:]
+        dst_ctrls = self.fboard[to_rank][to_file].copy()
+        src_ctrls = self.fboard[from_rank][from_file].copy()
 
         self.recalc_fboard(piece)
         if target is not None:
