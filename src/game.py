@@ -10,7 +10,7 @@ class Game:
 
     @property
     def is_end(self) -> bool:
-        return self.board.navl_moves[self.turn] == 0
+        return self.board.nmoves(self.turn) == 0
 
     def notation_to_loc(self, notation: str) -> int:
         file = ord(notation[0].lower()) - ord("a")

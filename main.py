@@ -3,7 +3,7 @@ from src.game import Game
 from src.term import TermDisplay
 
 
-def main():
+def main() -> None:
     print("Hello from chess-engine!")
     board = Board()
     display = TermDisplay()

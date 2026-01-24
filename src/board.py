@@ -1,12 +1,6 @@
-from .piece import Piece, PIECE_MAP, King, Pawn
-
 from typing import Optional
 
-
-def loc_to_notation(loc: int) -> str:
-    file = loc >> 3
-    rank = loc & 7
-    return f"{chr(file + ord('a'))}{8 - rank}"
+from .piece import PIECE_MAP, King, Pawn, Piece
 
 
 class Board:
@@ -21,7 +15,6 @@ class Board:
             kings, pieces = self.setup_starting_position()
             self.turn = False  # White starts
 
-        self.navl_moves: list[int] = [0, 0]
         self.pieces = pieces
         if kings[0].color:
             self.kings = [kings[1], kings[0]]
@@ -59,11 +52,14 @@ class Board:
     def setup_starting_position(self) -> tuple[list[King], list[list[Piece]]]:
         return self.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
 
-    def is_diag(self, loc1: int, loc2: int) -> bool:
+    def nmoves(self, color: bool) -> int:
+        return sum(p.nmoves for p in self.pieces[color])
+
+    def is_adj_file(self, loc1: int, loc2: int) -> bool:
         return abs((loc1 >> 3) - (loc2 >> 3)) == 1
 
     def is_valid_pawn_move(self, piece: Pawn, loc: int) -> bool:
-        if not self.is_diag(piece.loc, loc):
+        if not self.is_adj_file(piece.loc, loc):
             return True
         if self.board[loc] is not None:
             return True
@@ -83,6 +79,9 @@ class Board:
         attacker = king.checked_by[0]
         if to_loc == attacker.loc:
             return True
+
+        if to_loc not in attacker.ctrl_locs:
+            return False
 
         df = (king.loc >> 3) - (attacker.loc >> 3)
         dr = (king.loc & 7) - (attacker.loc & 7)
@@ -107,7 +106,7 @@ class Board:
         for attacker in self.fboard[loc]:
             if attacker.color != piece.color:
                 if isinstance(attacker, Pawn):
-                    return self.is_diag(attacker.loc, loc)
+                    return self.is_adj_file(attacker.loc, loc)
                 else:
                     return True
         return False
@@ -121,18 +120,16 @@ class Board:
                 if not self.does_blocks_check(piece, loc):
                     continue
             if not self.is_own(piece, loc) and self.is_valid_pawn_move(piece, loc):
-                piece.navl_moves += 1
+                piece.nmoves += 1
             piece.ctrl_locs.append(loc)
             self.fboard[loc].add(piece)
-        self.navl_moves[piece.color] += piece.navl_moves
 
     def recalc_fboard(self, piece: Piece) -> None:
         for loc in piece.ctrl_locs:
             self.fboard[loc].discard(piece)
 
-        self.navl_moves[piece.color] -= piece.navl_moves
         piece.ctrl_locs.clear()
-        piece.navl_moves = 0
+        piece.nmoves = 0
 
         if piece.captured:
             return
@@ -150,8 +147,7 @@ class Board:
             piece.ctrl_locs.append(loc)
             self.fboard[loc].add(piece)
             if not self.is_own(piece, loc):
-                piece.navl_moves += 1
-        self.navl_moves[piece.color] += piece.navl_moves
+                piece.nmoves += 1
 
     def list_moves(self, piece: Piece) -> list[int]:
         moves = []
@@ -167,7 +163,9 @@ class Board:
         cheked_by: list[Piece] = []
         for attacker in self.fboard[king.loc]:
             if attacker.color != king.color:
-                if isinstance(attacker, Pawn) and self.is_diag(king.loc, attacker.loc):
+                if isinstance(attacker, Pawn) and self.is_adj_file(
+                    king.loc, attacker.loc
+                ):
                     cheked_by.append(attacker)
                 else:
                     cheked_by.append(attacker)
@@ -176,11 +174,14 @@ class Board:
             return True
         return False
 
-    def is_ep(self, piece: Pawn, to_loc: int) -> bool:
-        return self.is_diag(piece.loc, to_loc) and self.board[to_loc] is None
+    def capture(self, piece: Piece) -> None:
+        piece.captured = True
+        self.board[piece.loc] = None
+        self.pieces[piece.color].remove(piece)
+        self.recalc_fboard(piece)
 
-    def move_piece(self, piece: Piece, to_loc: int) -> None:
-        target = self.board[to_loc]
+    def move_piece(self, piece: Piece, loc: int) -> None:
+        target = self.board[loc]
 
         recalc_targets = {
             piece,
@@ -188,30 +189,25 @@ class Board:
 
         self.ep_candidate = None
         if isinstance(piece, Pawn):
-            if self.is_ep(piece, to_loc):
-                ep_loc = (to_loc & 56) | (piece.loc & 7)
+            if self.is_adj_file(piece.loc, loc) and self.board[loc] is None:
+                ep_loc = (loc & 56) | (piece.loc & 7)
                 ep_candidate = self.board[ep_loc]
                 if ep_candidate:
-                    ep_candidate.captured = True
-                    self.board[ep_loc] = None
-                    self.pieces[ep_candidate.color].remove(ep_candidate)
-                    recalc_targets.add(ep_candidate)
+                    self.capture(ep_candidate)
                     recalc_targets.update(self.fboard[ep_loc])
 
-            if abs(piece.loc - to_loc) == 2:
+            if abs(piece.loc - loc) == 2:
                 self.ep_candidate = piece
 
-        recalc_targets.update(self.fboard[to_loc])
+        recalc_targets.update(self.fboard[loc])
         recalc_targets.update(self.fboard[piece.loc])
 
-        self.board[to_loc] = piece
-        self.board[piece.loc] = None
-        piece.move(to_loc)
-
         if target is not None:
-            target.captured = True
-            self.pieces[target.color].remove(target)
-            recalc_targets.add(target)
+            self.capture(target)
+
+        self.board[loc] = piece
+        self.board[piece.loc] = None
+        piece.move(loc)
 
         for p in recalc_targets:
             self.recalc_fboard(p)

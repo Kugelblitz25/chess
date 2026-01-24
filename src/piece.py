@@ -1,7 +1,6 @@
-from dataclasses import dataclass, field
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Iterator, Optional
-
 
 type Board = list["Piece | None"]
 
@@ -15,7 +14,7 @@ class Piece(ABC):
     ctrl_locs: list[int] = field(default_factory=list[int])
     captured: bool = False
     has_moved: bool = False
-    navl_moves: int = 0
+    nmoves: int = 0
 
     @abstractmethod
     def gen_moves(self, board: Board) -> Iterator[int]:
@@ -51,10 +50,10 @@ class Pawn(Piece):
             if board[next_loc] is None:
                 yield next_loc
 
-            if not self.has_moved:
-                double_loc = (file << 3) | (next_rank + direction)
-                if board[double_loc] is None:
-                    yield double_loc
+                if not self.has_moved:
+                    double_loc = (file << 3) | (next_rank + direction)
+                    if board[double_loc] is None:
+                        yield double_loc
 
             if file - 1 >= 0:
                 left_loc = ((file - 1) << 3) | next_rank
