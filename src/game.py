@@ -44,13 +44,10 @@ class Game:
         if len(moves) == 0:
             print("No valid moves for this piece.")
             return
-        print("Valid moves:")
-        for move in moves:
-            notation = self.index_to_notation(move)
-            print(notation, end=" ")
+        display_board(self.board, moves)
         print()
 
-    def move(self) -> bool:
+    def move(self) -> None:
         while True:
             src = self.get_file_and_rank()
             piece = self.board.board[src]
@@ -64,11 +61,7 @@ class Game:
             if len(moves) == 0:
                 print("No valid moves for this piece. Choose another piece.")
                 continue
-            print("Valid moves:")
-            for move in moves:
-                notation = self.index_to_notation(move)
-                print(notation, end=" ")
-            print()
+            display_board(self.board, moves)
             break
 
         while True:
@@ -83,17 +76,7 @@ class Game:
 
         self.board.move_piece(piece, dst)
         self.turn = not self.turn
-
-        if self.is_end:
-            print("Game over!")
-            if self.board.is_in_check(self.board.kings[self.turn]):
-                print("Checkmate!")
-                print(f"{'White' if self.turn else 'Black'} wins!")
-            else:
-                print("Stalemate!")
-                print("It's a draw!")
-            return False
-        return True
+        display_board(self.board)
 
     def get_board(self) -> Board:
         return self.board
@@ -102,15 +85,24 @@ class Game:
         return self.turn
 
     def run(self) -> None:
+        print("\nCurrent Board:")
+        display_board(self.board)
         while True:
-            print("\nCurrent Board:")
-            display_board(self.board)
+            if self.is_end:
+                print("Game over!")
+                if self.board.is_in_check(self.board.kings[self.turn]):
+                    print("Checkmate!")
+                    print(f"{'White' if self.turn else 'Black'} wins!")
+                else:
+                    print("Stalemate!")
+                    print("It's a draw!")
+                break
+
             cmd = input("cmd>> ").strip().lower()
             if cmd == "exit":
                 break
             elif cmd == "move":
-                if not self.move():
-                    break
+                self.move()
             elif cmd == "lmv":
                 self.list_moves()
             else:
