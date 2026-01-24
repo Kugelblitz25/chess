@@ -1,12 +1,12 @@
 from .board import Board
-from .piece import Piece
-from .display import display_board
+from .display import Display
 
 
 class Game:
-    def __init__(self, board: Board, turn: bool = False) -> None:
+    def __init__(self, board: Board, display: Display, turn: bool = False) -> None:
         self.board = board
-        self.turn = turn  # False for White, True for Black
+        self.display = display
+        self.turn = turn
 
     @property
     def is_end(self) -> bool:
@@ -44,7 +44,7 @@ class Game:
         if len(moves) == 0:
             print("No valid moves for this piece.")
             return
-        display_board(self.board, moves)
+        self.display.show_board(self.board, moves)
         print()
 
     def move(self) -> None:
@@ -61,7 +61,7 @@ class Game:
             if len(moves) == 0:
                 print("No valid moves for this piece. Choose another piece.")
                 continue
-            display_board(self.board, moves)
+            self.display.show_board(self.board, moves)
             break
 
         while True:
@@ -76,7 +76,7 @@ class Game:
 
         self.board.move_piece(piece, dst)
         self.turn = not self.turn
-        display_board(self.board)
+        self.display.show_board(self.board)
 
     def get_board(self) -> Board:
         return self.board
@@ -86,7 +86,7 @@ class Game:
 
     def run(self) -> None:
         print("\nCurrent Board:")
-        display_board(self.board)
+        self.display.show_board(self.board)
         while True:
             if self.is_end:
                 print("Game over!")
