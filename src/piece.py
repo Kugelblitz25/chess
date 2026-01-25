@@ -1,20 +1,64 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
+from enum import IntEnum
 
 type Board = list["Piece | None"]
 
 
+class Color(IntEnum):
+    WHITE = 0
+    BLACK = 1
+
+    def switch(self) -> "Color":
+        return Color(self.value ^ 1)
+
+
+class Type(IntEnum):
+    PAWN = 2
+    KNIGHT = 4
+    BISHOP = 6
+    ROOK = 8
+    QUEEN = 10
+    KING = 12
+
+
+NOT_MAP: dict[str, type["Piece"]] = {}
+
+
 @dataclass(eq=False)
 class Piece(ABC):
-    color: bool  # True for black, False for white
+    id: int
     loc: int
     notation: str = field(init=False)
-    symbol: tuple[str, str] = field(init=False)
     ctrl_locs: list[int] = field(default_factory=list[int])
     captured: bool = False
     has_moved: bool = False
-    nmoves: int = 0
+    nmoves: int = field(init=False)
+    is_checked: bool = False
+    checked_by: list["Piece"] = field(default_factory=list["Piece"])
+    direction: list[tuple[int, int]] = field(default_factory=list, init=False)
+
+    @property
+    def color(self) -> Color:
+        return Color(self.id & 1)
+
+    @property
+    def type(self) -> Type:
+        return Type(self.id & 14)
+
+    def __init_subclass__(cls) -> None:
+        super().__init_subclass__()
+        NOT_MAP[cls.notation] = cls
+
+    @classmethod
+    def from_notation(cls, notation: str, loc: int) -> "Piece":
+        if notation.upper() not in NOT_MAP:
+            raise ValueError("Invalid Notation")
+        piece_class = NOT_MAP[notation.upper()]
+        color = Color(notation.islower())
+        ptype = Type[piece_class.__name__.upper()]
+        return piece_class(ptype | color, loc)
 
     @abstractmethod
     def gen_moves(self, board: Board) -> Iterator[int]:
@@ -41,7 +85,7 @@ class Pawn(Piece):
     notation = "P"
 
     def __post_init__(self) -> None:
-        file, rank = self.loc >> 3, self.loc & 7
+        rank = self.loc & 7
         if (self.color and rank == 6) or (not self.color and rank == 1):
             self.has_moved = False
         else:
@@ -74,21 +118,21 @@ class Pawn(Piece):
 @dataclass(eq=False)
 class Knight(Piece):
     notation = "N"
+    directions = [
+        (2, 1),
+        (2, -1),
+        (-2, 1),
+        (-2, -1),
+        (1, 2),
+        (1, -2),
+        (-1, 2),
+        (-1, -2),
+    ]
 
     def gen_moves(self, board: Board) -> Iterator[int]:
         file = self.loc >> 3
         rank = self.loc & 7
-        knight_offsets = [
-            (2, 1),
-            (2, -1),
-            (-2, 1),
-            (-2, -1),
-            (1, 2),
-            (1, -2),
-            (-1, 2),
-            (-1, -2),
-        ]
-        for df, dr in knight_offsets:
+        for df, dr in self.directions:
             f, r = file + df, rank + dr
             if 0 <= f < 8 and 0 <= r < 8:
                 loc = (f << 3) | r
@@ -172,13 +216,3 @@ class King(Piece):
             move, _ = self.validate_move(f, r, board)
             if move is not None:
                 yield move
-
-
-PIECE_MAP: dict[str, type[Piece]] = {
-    "P": Pawn,
-    "N": Knight,
-    "B": Bishop,
-    "R": Rook,
-    "Q": Queen,
-    "K": King,
-}

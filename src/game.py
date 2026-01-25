@@ -1,9 +1,12 @@
+from .piece import Color
 from .board import Board
 from .display import Display
 
 
 class Game:
-    def __init__(self, board: Board, display: Display, turn: bool = False) -> None:
+    def __init__(
+        self, board: Board, display: Display, turn: Color = Color.WHITE
+    ) -> None:
         self.board = board
         self.display = display
         self.turn = turn
@@ -75,13 +78,13 @@ class Game:
             break
 
         self.board.move_piece(piece, dst)
-        self.turn = not self.turn
+        self.turn = self.turn.switch()
         self.display.show_board(self.board)
 
     def get_board(self) -> Board:
         return self.board
 
-    def get_turn(self) -> bool:
+    def get_turn(self) -> Color:
         return self.turn
 
     def run(self) -> None:
