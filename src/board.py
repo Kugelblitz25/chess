@@ -39,7 +39,7 @@ class Board:
                 if char.isdigit():
                     file += int(char)
                 else:
-                    loc = (file << 3) | r
+                    loc = (file << 3) | (7 - r)
                     color = char.islower()
                     piece = PIECE_MAP[char.upper()](color, loc)
                     pieces[color].append(piece)

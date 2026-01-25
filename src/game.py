@@ -14,12 +14,12 @@ class Game:
 
     def notation_to_loc(self, notation: str) -> int:
         file = ord(notation[0].lower()) - ord("a")
-        rank = 8 - int(notation[1])
-        return (file << 3) | rank
+        rank = int(notation[1])
+        return (file << 3) | (rank - 1)
 
     def index_to_notation(self, loc: int) -> str:
         file, rank = loc >> 3, loc & 7
-        return f"{chr(file + ord('a'))}{8 - rank}"
+        return f"{chr(file + ord('a'))}{rank + 1}"
 
     def get_file_and_rank(self) -> int:
         while True:

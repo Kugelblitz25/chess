@@ -36,12 +36,19 @@ class Piece(ABC):
         return (loc, True)
 
 
+@dataclass(eq=False)
 class Pawn(Piece):
     notation = "P"
-    symbol = ("♟", "♙")
+
+    def __post_init__(self) -> None:
+        file, rank = self.loc >> 3, self.loc & 7
+        if (self.color and rank == 6) or (not self.color and rank == 1):
+            self.has_moved = False
+        else:
+            self.has_moved = True
 
     def gen_moves(self, board: Board) -> Iterator[int]:
-        direction = 1 if self.color else -1
+        direction = -1 if self.color else 1
         next_rank = (self.loc & 7) + direction
         file = self.loc >> 3
 
@@ -64,9 +71,9 @@ class Pawn(Piece):
                 yield right_loc
 
 
+@dataclass(eq=False)
 class Knight(Piece):
     notation = "N"
-    symbol = ("♞", "♘")
 
     def gen_moves(self, board: Board) -> Iterator[int]:
         file = self.loc >> 3
@@ -88,9 +95,9 @@ class Knight(Piece):
                 yield loc
 
 
+@dataclass(eq=False)
 class Rook(Piece):
     notation = "R"
-    symbol = ("♜", "♖")
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
 
     def gen_moves(self, board: Board) -> Iterator[int]:
@@ -108,9 +115,9 @@ class Rook(Piece):
                     break
 
 
+@dataclass(eq=False)
 class Bishop(Piece):
     notation = "B"
-    symbol = ("♝", "♗")
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
 
     def gen_moves(self, board: Board) -> Iterator[int]:
@@ -129,9 +136,9 @@ class Bishop(Piece):
                     break
 
 
+@dataclass(eq=False)
 class Queen(Piece):
     notation = "Q"
-    symbol = ("♛", "♕")
     directions = Rook.directions + Bishop.directions
 
     def gen_moves(self, board: Board) -> Iterator[int]:
@@ -149,9 +156,9 @@ class Queen(Piece):
                     break
 
 
+@dataclass(eq=False)
 class King(Piece):
     notation = "K"
-    symbol = ("♚", "♔")
     directions = Queen.directions
     is_checked: bool = False
     checked_by: list[Piece] = field(default_factory=list[Piece])

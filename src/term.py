@@ -38,8 +38,8 @@ class TermDisplay:
 
         print("\n  ╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗")
 
-        for rank in range(8):
-            row = f"{8 - rank} ║"
+        for rank in range(7, -1, -1):
+            row = f"{rank + 1} ║"
 
             for file in range(8):
                 loc = (file << 3) | rank
@@ -73,7 +73,7 @@ class TermDisplay:
             row += "║"
             print(row)
 
-            if rank < 7:
+            if rank > 0:
                 print("  ╟───┼───┼───┼───┼───┼───┼───┼───╢")
 
         print("  ╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝")
