@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Iterator, Optional
 from enum import IntEnum
+from typing import Iterator, Optional
 
 type Board = list["Piece | None"]
 
@@ -26,6 +26,10 @@ class Type(IntEnum):
 NOT_MAP: dict[str, type["Piece"]] = {}
 
 
+def sign(n: int) -> int:
+    return (n > 0) - (n < 0)
+
+
 @dataclass(eq=False)
 class Piece(ABC):
     id: int
@@ -37,7 +41,7 @@ class Piece(ABC):
     nmoves: int = field(init=False)
     is_checked: bool = False
     checked_by: list["Piece"] = field(default_factory=list["Piece"])
-    direction: list[tuple[int, int]] = field(default_factory=list, init=False)
+    directions: list[tuple[int, int]] = field(init=False)
 
     @property
     def color(self) -> Color:
@@ -68,6 +72,14 @@ class Piece(ABC):
         self.loc = loc
         self.has_moved = True
 
+    def is_in_dir(self, loc: int) -> Optional[tuple[int, int]]:
+        dst_file, dst_rank = loc >> 3, loc & 7
+        src_file, src_rank = self.loc >> 3, self.loc & 7
+        dir = (sign(dst_file - src_file), sign(dst_rank - src_rank))
+        if dir in self.directions:
+            return dir
+        return None
+
     def validate_move(
         self, file: int, rank: int, board: Board
     ) -> tuple[Optional[int], bool]:
@@ -91,28 +103,40 @@ class Pawn(Piece):
         else:
             self.has_moved = True
 
+        direction = -1 if self.color else 1
+        self.directions = [
+            (0, direction),
+            (0, 2 * direction),
+            (-1, direction),
+            (1, direction),
+        ]
+
     def gen_moves(self, board: Board) -> Iterator[int]:
         direction = -1 if self.color else 1
         next_rank = (self.loc & 7) + direction
         file = self.loc >> 3
 
-        if 0 <= next_rank < 8:
-            next_loc = (file << 3) | next_rank
-            if board[next_loc] is None:
-                yield next_loc
+        move, end = self.validate_move(file, next_rank, board)
+        if move is None:
+            return None
 
-                if not self.has_moved:
-                    double_loc = (file << 3) | (next_rank + direction)
-                    if board[double_loc] is None:
-                        yield double_loc
+        if not end:
+            yield move
 
-            if file - 1 >= 0:
-                left_loc = ((file - 1) << 3) | next_rank
-                yield left_loc
+            if not self.has_moved:
+                double_move, end = self.validate_move(
+                    file, next_rank + direction, board
+                )
+                if not end and double_move is not None:
+                    yield double_move
 
-            if file + 1 < 8:
-                right_loc = ((file + 1) << 3) | next_rank
-                yield right_loc
+        left_loc, _ = self.validate_move(file - 1, next_rank, board)
+        if left_loc is not None:
+            yield left_loc
+
+        right_loc, _ = self.validate_move(file + 1, next_rank, board)
+        if right_loc is not None:
+            yield right_loc
 
 
 @dataclass(eq=False)

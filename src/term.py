@@ -1,5 +1,5 @@
 from .board import Board
-from .piece import Piece, Color
+from .piece import Color, Piece
 
 
 class TermDisplay:

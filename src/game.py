@@ -1,6 +1,6 @@
-from .piece import Color
 from .board import Board
 from .display import UI
+from .piece import Color
 
 
 class Game:
