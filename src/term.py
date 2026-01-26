@@ -1,5 +1,5 @@
 from .board import Board
-from .piece import Piece
+from .piece import Piece, Color
 
 
 class TermDisplay:
@@ -22,7 +22,12 @@ class TermDisplay:
         else:
             return self.PIECE_SYMBOLS[piece.notation][piece.color]
 
-    def show_board(self, board: Board, highlight: list[int] | None = None) -> None:
+    def show_board(
+        self,
+        board: Board,
+        side: Color = Color.WHITE,
+        highlight: list[int] | None = None,
+    ) -> None:
         if highlight is None:
             highlight = []
 
@@ -38,10 +43,12 @@ class TermDisplay:
 
         print("\n  ╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗")
 
-        for rank in range(7, -1, -1):
+        for r in range(7, -1, -1):
+            rank = 7 - r if side == Color.BLACK else r
             row = f"{rank + 1} ║"
 
-            for file in range(8):
+            for f in range(8):
+                file = 7 - f if side == Color.BLACK else f
                 loc = (file << 3) | rank
                 piece = board.board[loc]
 
@@ -67,14 +74,17 @@ class TermDisplay:
 
                 row += f"{bg}{BOLD} {color}{symbol} {RESET}"
 
-                if file < 7:
+                if f < 7:
                     row += "│"
 
             row += "║"
             print(row)
 
-            if rank > 0:
+            if r > 0:
                 print("  ╟───┼───┼───┼───┼───┼───┼───┼───╢")
 
         print("  ╚═══╧═══╧═══╧═══╧═══╧═══╧═══╧═══╝")
-        print("    a   b   c   d   e   f   g   h\n")
+        file_names = "abcdefgh"
+        if side == Color.BLACK:
+            file_names = file_names[::-1]
+        print("   ", "   ".join(file_names))

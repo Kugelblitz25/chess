@@ -1,7 +1,11 @@
 from typing import Protocol
 
+from .piece import Color
+
 from .board import Board
 
 
-class Display(Protocol):
-    def show_board(self, board: Board, highlight: list[int] | None = None) -> None: ...
+class UI(Protocol):
+    def show_board(
+        self, board: Board, side: Color, highlight: list[int] | None = None
+    ) -> None: ...
