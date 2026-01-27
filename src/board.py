@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Iterator, Optional
 
 from .piece import Color, Piece, Type
 
@@ -72,6 +72,41 @@ class Board:
         if (loc >> 3) != (self.ep_candidate.loc >> 3):
             return False
 
+        # Check whether ep_candidate is can be taken without check
+        king = self.kings[piece.color]
+
+        def check_for_ppin(p1: Piece, p2: Piece) -> bool:
+            for p in self.fboard[p1.loc]:
+                if p.color != p1.color:
+                    continue
+                if not p.is_sliding:
+                    continue
+
+                dir1 = p.is_in_dir(king.loc)
+                if dir1 is None:
+                    continue
+
+                dir2 = p.is_in_dir(p1.loc)
+                if dir2 is None:
+                    raise ValueError("Invalid State")
+
+                if dir1 != dir2:
+                    continue
+
+                ppin = True
+                for i in self.iterate_between(p1, king):
+                    target = self.board[i]
+                    if target is not None and target != p2:
+                        ppin = False
+                        break
+                if ppin:
+                    return True
+            return False
+
+        if check_for_ppin(self.ep_candidate, piece):
+            return False
+        if check_for_ppin(piece, self.ep_candidate):
+            return False
         return True
 
     def does_blocks_check(self, piece: Piece, loc: int) -> bool:
@@ -86,9 +121,6 @@ class Board:
         if piece.type == Type.KING:
             return not self.is_threatened(piece, loc)
 
-        if piece.type == Type.PAWN and not self.is_valid_pawn_move(piece, loc):
-            return False
-
         attacker = king.checked_by[0]
         if loc == attacker.loc:
             return True
@@ -96,18 +128,22 @@ class Board:
         if loc not in attacker.ctrl_locs:
             return False
 
-        df = (king.loc >> 3) - (attacker.loc >> 3)
-        dr = (king.loc & 7) - (attacker.loc & 7)
-        df_dest = (loc >> 3) - (attacker.loc >> 3)
-        dr_dest = (loc & 7) - (attacker.loc & 7)
+        check_dir = attacker.is_in_dir(king.loc)
+        if check_dir is None:
+            raise ValueError("Invalid State.")
+        move_dir = attacker.is_in_dir(loc)
+        if move_dir is None:
+            raise ValueError("Invalid State.")
 
-        if df * dr_dest != dr * df_dest:
+        if move_dir != check_dir:
             return False
 
-        if df != 0:
-            t = df_dest / df
+        if check_dir[0] != 0:
+            t = ((loc >> 3) - (attacker.loc >> 3)) / (
+                (king.loc >> 3) - (attacker.loc >> 3)
+            )
         else:
-            t = dr_dest / dr
+            t = ((loc & 7) - (attacker.loc & 7)) / ((king.loc & 7) - (attacker.loc & 7))
 
         return 0 < t < 1
 
@@ -145,26 +181,27 @@ class Board:
                     return True
         return False
 
-    def is_sliding(self, piece: Piece) -> bool:
-        return piece.type in (Type.BISHOP, Type.ROOK, Type.QUEEN)
-
-    def is_pinning(self, piece: Piece) -> Optional[Piece]:
-        other_king = self.kings[piece.color.switch()]
-        dir = piece.is_in_dir(other_king.loc)
+    def iterate_between(self, src: Piece, dst: Piece) -> Iterator[int]:
+        dir = src.is_in_dir(dst.loc)
         if dir is None:
-            return None
+            return
+
         df, dr = dir
-        f, r = piece.loc >> 3, piece.loc & 7
-        pinned: Optional[Piece] = None
+        f, r = src.loc >> 3, src.loc & 7
         while True:
             f += df
             r += dr
-            if not (0 <= f < 8 and 0 <= r < 8):
+            if not (0 <= f < 8 and 0 <= f < 8):
                 break
             loc = (f << 3) | r
-            if loc == other_king.loc:
+            if dst.loc == loc:
                 break
+            yield loc
 
+    def is_pinning(self, piece: Piece) -> Optional[Piece]:
+        other_king = self.kings[piece.color.switch()]
+        pinned: Optional[Piece] = None
+        for loc in self.iterate_between(piece, other_king):
             if self.is_own(other_king, loc):
                 if pinned is None:
                     pinned = self.board[loc]
@@ -180,13 +217,13 @@ class Board:
         piece.nmoves = 0
 
     def attcks(self, piece: Piece, loc: int) -> None:
-        piece.ctrl_locs.append(loc)
         self.fboard[loc].append(piece)
         if piece.type == Type.PAWN and not self.is_valid_pawn_move(piece, loc):
             return
 
         if not self.is_own(piece, loc):
             piece.nmoves += 1
+            piece.ctrl_locs.append(loc)
 
     def recalc_fboard(self, piece: Piece) -> None:
         self.clear_moves(piece)
@@ -200,21 +237,14 @@ class Board:
                 continue
             self.attcks(piece, loc)
 
-        if self.is_sliding(piece):
+        if piece.is_sliding:
             pinned = self.is_pinning(piece)
             if pinned is None:
                 return None
             self.add_pin(piece, pinned)
 
     def list_moves(self, piece: Piece) -> list[int]:
-        moves = []
-        for move in piece.ctrl_locs:
-            if piece.type == Type.PAWN and not self.is_valid_pawn_move(piece, move):
-                continue
-
-            if not self.is_own(piece, move):
-                moves.append(move)
-        return moves
+        return piece.ctrl_locs
 
     def is_in_check(self, king: Piece) -> bool:
         cheked_by: list[Piece] = []
@@ -261,22 +291,35 @@ class Board:
             if piece.is_checked and not pinned:
                 self.remove_pin(piece.checked_by[0], piece)
 
-    def handle_ep(self, piece: Piece, loc: int) -> list[Piece]:
+    def handle_ep(self, piece: Piece, loc: int) -> set[Piece]:
         self.ep_candidate = None
         if piece.type != Type.PAWN:
-            return []
+            return set()
+
+        recalc_targets: set[Piece] = set()
 
         if self.is_adj_file(piece.loc, loc) and self.board[loc] is None:
             ep_loc = (loc & 56) | (piece.loc & 7)
             ep_candidate = self.board[ep_loc]
             if ep_candidate:
                 self.capture(ep_candidate)
-                return self.fboard[ep_loc]
+                recalc_targets.update(self.fboard[ep_loc])
 
         if abs(piece.loc - loc) == 2:
             self.ep_candidate = piece
+            file, rank = loc >> 3, loc & 7
+            print(file, rank)
+            if 0 <= file - 1:
+                target = self.board[((file - 1) << 3) | rank]
+                if target is not None and target.id == Type.PAWN | piece.color.switch():
+                    print(f"{target=}")
+                    recalc_targets.add(target)
+            if file + 1 < 8:
+                target = self.board[((file + 1) << 3) | rank]
+                if target is not None and target.id == Type.PAWN | piece.color.switch():
+                    recalc_targets.add(target)
 
-        return []
+        return recalc_targets
 
     def handle_castel(self, piece: Piece, loc: int) -> list[Piece]:
         if piece.type != Type.KING:

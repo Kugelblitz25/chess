@@ -51,6 +51,10 @@ class Piece(ABC):
     def type(self) -> Type:
         return Type(self.id & 14)
 
+    @property
+    def is_sliding(self) -> bool:
+        return self.type in (Type.BISHOP, Type.ROOK, Type.QUEEN)
+
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
         NOT_MAP[cls.notation] = cls
