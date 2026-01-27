@@ -29,6 +29,18 @@ class Board:
                 continue
             self.recalc_fboard(piece)
 
+    def get_size(self) -> int:
+        return len(self.board)
+
+    def get_piece(self, loc: int) -> Optional[Piece]:
+        return self.board[loc]
+
+    def get_all_pieces(self, color: Color) -> list[Piece]:
+        return self.pieces[color]
+
+    def get_king(self, color: Color) -> Piece:
+        return self.kings[color]
+
     def load_fen(self, fen: str) -> tuple[list[Piece], list[list[Piece]]]:
         board_state = fen.split(" ")[0]
         rows = board_state.split("/")
@@ -308,11 +320,9 @@ class Board:
         if abs(piece.loc - loc) == 2:
             self.ep_candidate = piece
             file, rank = loc >> 3, loc & 7
-            print(file, rank)
             if 0 <= file - 1:
                 target = self.board[((file - 1) << 3) | rank]
                 if target is not None and target.id == Type.PAWN | piece.color.switch():
-                    print(f"{target=}")
                     recalc_targets.add(target)
             if file + 1 < 8:
                 target = self.board[((file + 1) << 3) | rank]
