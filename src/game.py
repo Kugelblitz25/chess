@@ -91,7 +91,7 @@ class Game:
         while True:
             if self.is_end:
                 print("Game over!")
-                if self.board.is_in_check(self.board.kings[self.turn]):
+                if self.board.is_in_check(self.board.get_king(self.turn)):
                     print("Checkmate!")
                     print(f"{'White' if self.turn else 'Black'} wins!")
                 else:

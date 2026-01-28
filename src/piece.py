@@ -15,12 +15,12 @@ class Color(IntEnum):
 
 
 class Type(IntEnum):
-    PAWN = 2
-    KNIGHT = 4
-    BISHOP = 6
-    ROOK = 8
-    QUEEN = 10
-    KING = 12
+    PAWN = 0
+    KNIGHT = 2
+    BISHOP = 4
+    ROOK = 6
+    QUEEN = 8
+    KING = 10
 
 
 NOT_MAP: dict[str, type["Piece"]] = {}
@@ -38,7 +38,6 @@ class Piece(ABC):
     ctrl_locs: list[int] = field(default_factory=list[int])
     captured: bool = False
     has_moved: bool = False
-    nmoves: int = field(init=False)
     is_checked: bool = False
     checked_by: list["Piece"] = field(default_factory=list["Piece"])
     directions: list[tuple[int, int]] = field(init=False)
@@ -55,18 +54,34 @@ class Piece(ABC):
     def is_sliding(self) -> bool:
         return self.type in (Type.BISHOP, Type.ROOK, Type.QUEEN)
 
-    def __init_subclass__(cls) -> None:
-        super().__init_subclass__()
+    @property
+    def nmoves(self) -> int:
+        return len(self.ctrl_locs)
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
         NOT_MAP[cls.notation] = cls
 
     @classmethod
+    def get_type_from_notation(cls, notation: str) -> Type:
+        pclass = NOT_MAP[notation.upper()]
+        return Type[pclass.__name__.upper()]
+
+    @classmethod
     def from_notation(cls, notation: str, loc: int) -> "Piece":
+        print(f"{notation=}, {loc=}")
         if notation.upper() not in NOT_MAP:
             raise ValueError("Invalid Notation")
         piece_class = NOT_MAP[notation.upper()]
         color = Color(notation.islower())
-        ptype = Type[piece_class.__name__.upper()]
+        ptype = cls.get_type_from_notation(notation)
         return piece_class(ptype | color, loc)
+
+    def to_notation(self) -> str:
+        if self.color == Color.BLACK:
+            return self.notation.lower()
+        else:
+            return self.notation.upper()
 
     @abstractmethod
     def gen_moves(self, board: Board) -> Iterator[int]:
@@ -96,7 +111,7 @@ class Piece(ABC):
         return (loc, True)
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, slots=True)
 class Pawn(Piece):
     notation = "P"
 
@@ -143,7 +158,7 @@ class Pawn(Piece):
             yield right_loc
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, slots=True)
 class Knight(Piece):
     notation = "N"
     directions = [
@@ -167,7 +182,7 @@ class Knight(Piece):
                 yield loc
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, slots=True)
 class Rook(Piece):
     notation = "R"
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
@@ -187,7 +202,7 @@ class Rook(Piece):
                     break
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, slots=True)
 class Bishop(Piece):
     notation = "B"
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
@@ -208,10 +223,10 @@ class Bishop(Piece):
                     break
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, slots=True)
 class Queen(Piece):
     notation = "Q"
-    directions = Rook.directions + Bishop.directions
+    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1), (1, 0), (-1, 0), (0, 1), (0, -1)]
 
     def gen_moves(self, board: Board) -> Iterator[int]:
         rank = self.loc & 7
@@ -228,12 +243,10 @@ class Queen(Piece):
                     break
 
 
-@dataclass(eq=False)
+@dataclass(eq=False, slots=True)
 class King(Piece):
     notation = "K"
-    directions = Queen.directions
-    is_checked: bool = False
-    checked_by: list[Piece] = field(default_factory=list[Piece])
+    directions = [(1, 1), (1, -1), (-1, 1), (-1, -1), (1, 0), (-1, 0), (0, 1), (0, -1)]
 
     def gen_moves(self, board: Board) -> Iterator[int]:
         rank = self.loc & 7
