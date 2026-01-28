@@ -26,8 +26,48 @@ class Board:
     def get_size(self) -> int:
         return len(self.board)
 
-    def get_piece(self, loc: int) -> Optional[Piece]:
-        return self.board[loc]
+    def get_piece_from_SAN(
+        self, notation: str, file: Optional[int] = None, rank: Optional[int] = None
+    ) -> Piece:
+        if not notation:
+            raise ValueError("Invalid Notation: No such type of piece")
+        color = Color.BLACK if notation.islower() else Color.WHITE
+        ptype = Piece.get_type_from_notation(notation)
+
+        if file is None and rank is None:
+            if len(self.pieces[ptype | color]) == 1:
+                return self.pieces[ptype | color][0]
+            else:
+                raise ValueError("Invalid Notation: Ambiguous notation")
+
+        loc: Optional[int] = None
+
+        if file is not None and rank is not None:
+            loc = (file << 3) | rank
+
+        piece: Optional[Piece] = None
+        for p in self.pieces[ptype | color]:
+            if loc is not None and p.loc == loc:
+                if piece is None:
+                    piece = p
+                else:
+                    raise ValueError("Invalid Notation: Ambiguous notation")
+            elif file is not None and (p.loc >> 3) == file:
+                if piece is None:
+                    piece = p
+                else:
+                    raise ValueError("Invalid Notation: Ambiguous notation")
+
+            elif rank is not None and (p.loc & 7) == rank:
+                if piece is None:
+                    piece = p
+                else:
+                    raise ValueError("Invalid Notation: Ambiguous notation")
+
+        if piece is None:
+            raise ValueError("Invalid Notation: No such piece found")
+
+        return piece
 
     def get_all_pieces(self, color: Color) -> list[Piece]:
         pieces = []
