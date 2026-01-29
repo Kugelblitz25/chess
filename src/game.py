@@ -24,9 +24,11 @@ class Game:
 
     def get_file_and_rank(self) -> int:
         while True:
-            loc = input("Enter position (e.g., e2): ").strip().lower()
+            loc = self.display.get_input("Enter position (e.g., e2): ").lower()
             if not (len(loc) == 2 and loc[0] in "abcdefgh" and loc[1] in "12345678"):
-                print("Invalid input. Please enter a valid position like 'e2'.")
+                self.display.show_err(
+                    "Invalid input. Please enter a valid position like 'e2'."
+                )
                 continue
             return self.notation_to_loc(loc)
 
@@ -35,32 +37,37 @@ class Game:
             loc = self.get_file_and_rank()
             piece = self.board.board[loc]
             if piece is None:
-                print("No piece at the given location.")
+                self.display.show_err("No piece at the given location.")
                 continue
             if piece.color != self.turn:
-                print("It's not this piece's turn to move.")
+                self.display.show_err("It's not this piece's turn to move.")
                 continue
             break
         moves = self.board.list_moves(piece)
         if len(moves) == 0:
-            print("No valid moves for this piece.")
+            self.display.show_err("No valid moves for this piece.")
             return
         self.display.show_board(self.board, self.turn, moves)
-        print()
 
     def move(self) -> None:
         while True:
             src = self.get_file_and_rank()
             piece = self.board.board[src]
             if piece is None:
-                print("No piece at the given location. Choose another piece.")
+                self.display.show_err(
+                    "No piece at the given location. Choose another piece."
+                )
                 continue
             if piece.color != self.turn:
-                print("It's not this piece's turn to move. Choose another piece.")
+                self.display.show_err(
+                    "It's not this piece's turn to move. Choose another piece."
+                )
                 continue
             moves = self.board.list_moves(piece)
             if len(moves) == 0:
-                print("No valid moves for this piece. Choose another piece.")
+                self.display.show_err(
+                    "No valid moves for this piece. Choose another piece."
+                )
                 continue
             self.display.show_board(self.board, self.turn, moves)
             break
@@ -68,10 +75,10 @@ class Game:
         while True:
             dst = self.get_file_and_rank()
             if self.board.is_own(piece, dst):
-                print("Cannot capture your own piece.")
+                self.display.show_err("Cannot capture your own piece.")
                 continue
             if dst not in moves:
-                print("Invalid move. Please choose a valid move.")
+                self.display.show_err("Invalid move. Please choose a valid move.")
                 continue
             break
 
@@ -86,20 +93,21 @@ class Game:
         return self.turn
 
     def run(self) -> None:
-        print("\nCurrent Board:")
         self.display.show_board(self.board, self.turn)
         while True:
             if self.is_end:
-                print("Game over!")
+                self.display.show_success("Game over!")
                 if self.board.is_in_check(self.board.get_king(self.turn)):
-                    print("Checkmate!")
-                    print(f"{'White' if self.turn else 'Black'} wins!")
+                    self.display.show_success("Checkmate!")
+                    self.display.show_success(
+                        f"{'White' if self.turn else 'Black'} wins!"
+                    )
                 else:
-                    print("Stalemate!")
-                    print("It's a draw!")
+                    self.display.show_success("Stalemate!")
+                    self.display.show_success("It's a draw!")
                 break
 
-            cmd = input("cmd>> ").strip().lower()
+            cmd = self.display.get_input("cmd>> ").lower()
             if cmd == "exit":
                 break
             elif cmd == "move":
@@ -107,4 +115,6 @@ class Game:
             elif cmd == "lmv":
                 self.list_moves()
             else:
-                print("Unknown command. Available commands: move, lmv, exit.")
+                self.display.show_err(
+                    "Unknown command. Available commands: move, lmv, exit."
+                )

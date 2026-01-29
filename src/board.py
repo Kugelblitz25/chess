@@ -26,6 +26,9 @@ class Board:
     def get_size(self) -> int:
         return len(self.board)
 
+    def get_piece(self, loc: int) -> Optional[Piece]:
+        return self.board[loc]
+
     def get_piece_from_SAN(
         self, notation: str, file: Optional[int] = None, rank: Optional[int] = None
     ) -> Piece:

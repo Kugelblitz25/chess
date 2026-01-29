@@ -1,17 +1,28 @@
 from .board import Board
 from .piece import Color, Piece
 
+LIGHT_BG = "\033[48;5;215m"
+DARK_BG = "\033[48;5;94m"
+HIGHLIGHT_BG = "\033[48;5;34m"
+HIGHLIGHT_DOT = "\033[38;5;22m"
+BLACK_PIECE = "\033[38;5;16m"
+WHITE_PIECE = "\033[38;5;231m"
+ERROR_MSG = "\033[38;5;196m"
+SUCCESS_MSG = "\033[38;5;82m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+
+PIECE_SYMBOLS = {
+    "K": ("♚", "♔"),
+    "Q": ("♛", "♕"),
+    "R": ("♜", "♖"),
+    "B": ("♝", "♗"),
+    "N": ("♞", "♘"),
+    "P": ("♟", "♙"),
+}
+
 
 class TermDisplay:
-    PIECE_SYMBOLS = {
-        "K": ("♚", "♔"),
-        "Q": ("♛", "♕"),
-        "R": ("♜", "♖"),
-        "B": ("♝", "♗"),
-        "N": ("♞", "♘"),
-        "P": ("♟", "♙"),
-    }
-
     def __init__(self, use_ascii: bool = True) -> None:
         self.use_ascii = use_ascii
 
@@ -20,7 +31,16 @@ class TermDisplay:
             symbol = piece.notation
             return symbol.lower() if piece.color else symbol
         else:
-            return self.PIECE_SYMBOLS[piece.notation][piece.color]
+            return PIECE_SYMBOLS[piece.notation][piece.color]
+
+    def get_input(self, query: str) -> str:
+        return input(query).strip()
+
+    def show_err(self, message: str) -> None:
+        print(f"{ERROR_MSG}{message}{RESET}")
+
+    def show_success(self, message: str) -> None:
+        print(f"{SUCCESS_MSG}{message}{RESET}")
 
     def show_board(
         self,
@@ -32,14 +52,6 @@ class TermDisplay:
             highlight = []
 
         highlight_set = set(highlight)
-
-        LIGHT_BG = "\033[48;5;215m"
-        DARK_BG = "\033[48;5;94m"
-        HIGHLIGHT_BG = "\033[48;5;34m"
-        BLACK_PIECE = "\033[38;5;16m"
-        WHITE_PIECE = "\033[38;5;231m"
-        RESET = "\033[0m"
-        BOLD = "\033[1m"
 
         print("\n  ╔═══╤═══╤═══╤═══╤═══╤═══╤═══╤═══╗")
 
@@ -59,7 +71,7 @@ class TermDisplay:
                     bg = HIGHLIGHT_BG
                     if piece is None:
                         symbol = "●"
-                        color = "\033[38;5;22m"
+                        color = HIGHLIGHT_DOT
                     else:
                         symbol = self.get_symbol(piece)
                         color = BLACK_PIECE if not piece.color else WHITE_PIECE
@@ -88,3 +100,4 @@ class TermDisplay:
         if side == Color.BLACK:
             file_names = file_names[::-1]
         print("   ", "   ".join(file_names))
+        print()

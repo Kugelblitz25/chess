@@ -69,7 +69,6 @@ class Piece(ABC):
 
     @classmethod
     def from_notation(cls, notation: str, loc: int) -> "Piece":
-        print(f"{notation=}, {loc=}")
         if notation.upper() not in NOT_MAP:
             raise ValueError("Invalid Notation")
         piece_class = NOT_MAP[notation.upper()]
