@@ -134,19 +134,16 @@ class Pawn(Piece):
         next_rank = (self.loc & 7) + direction
         file = self.loc >> 3
 
-        move, end = self.validate_move(file, next_rank, board)
+        move, _ = self.validate_move(file, next_rank, board)
         if move is None:
             return None
 
-        if not end:
-            yield move
+        yield move
 
-            if not self.has_moved:
-                double_move, end = self.validate_move(
-                    file, next_rank + direction, board
-                )
-                if not end and double_move is not None:
-                    yield double_move
+        if not self.has_moved:
+            double_move, _ = self.validate_move(file, next_rank + direction, board)
+            if double_move is not None:
+                yield double_move
 
         left_loc, _ = self.validate_move(file - 1, next_rank, board)
         if left_loc is not None:

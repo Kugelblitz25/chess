@@ -43,19 +43,19 @@ class TkDisplay:
         self.file_canvas.grid(row=1, column=1)
 
         control_frame = tk.Frame(self.root)
-        control_frame.pack(fill=tk.X, padx=10, pady=(5, 10))
+        control_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
 
         self.message_label = tk.Label(
             control_frame,
             text="",
-            font=("Arial", 11),
+            font=("Arial", 14),
             wraplength=board_size + 2 * LABEL_SIZE,
-            justify=tk.LEFT,
+            justify=tk.CENTER,
             fg="black",
         )
-        self.message_label.pack(anchor=tk.W, pady=10)
-        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.message_label.pack(anchor=tk.CENTER, pady=0)
 
+        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
         self.canvas.bind("<Button-1>", self._on_board_click)
 
     def _on_closing(self) -> None:

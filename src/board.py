@@ -138,7 +138,7 @@ class Board:
 
     def is_valid_pawn_move(self, piece: Piece, loc: int) -> bool:
         if not self.is_adj_file(piece.loc, loc):
-            return True
+            return self.get_piece(loc) is None
 
         if self.board[loc] is not None:
             return True
