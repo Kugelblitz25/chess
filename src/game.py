@@ -72,6 +72,8 @@ class Game:
                 else:
                     self.display.show_success("Stalemate!")
                     self.display.show_success("It's a draw!")
+                self.display.show_board(self.board, self.turn)
+                self.get_file_and_rank()
                 break
 
             loc = self.get_file_and_rank()
