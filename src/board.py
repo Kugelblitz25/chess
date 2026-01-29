@@ -387,8 +387,8 @@ class Board:
 
         recalc_targets.update(self.handle_ep(piece, loc))
         recalc_targets.update(self.handle_castel(piece, loc))
-        recalc_targets.update(p for p in self.fboard[loc] if p.is_sliding)
-        recalc_targets.update(p for p in self.fboard[piece.loc] if p.is_sliding)
+        recalc_targets.update(self.fboard[loc])
+        recalc_targets.update(self.fboard[piece.loc])
 
         if target is not None:
             self.capture(target)
