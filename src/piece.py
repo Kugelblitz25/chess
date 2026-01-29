@@ -93,9 +93,10 @@ class Piece(ABC):
     def is_in_dir(self, loc: int) -> Optional[tuple[int, int]]:
         dst_file, dst_rank = loc >> 3, loc & 7
         src_file, src_rank = self.loc >> 3, self.loc & 7
-        dir = (sign(dst_file - src_file), sign(dst_rank - src_rank))
-        if dir in self.directions:
-            return dir
+        df, dr = dst_file - src_file, dst_rank - src_rank
+        for f, r in self.directions:
+            if f * dr - r * df == 0 and f * df + r * dr > 0:
+                return (f, r)
         return None
 
     def validate_move(
