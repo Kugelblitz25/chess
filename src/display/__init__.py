@@ -1,7 +1,7 @@
 from typing import Protocol
 
-from .board import Board
-from .piece import Color
+from src.board import Board
+from src.piece import Color
 
 
 class UI(Protocol):

@@ -1,6 +1,7 @@
+from typing import Optional
 from .board import Board
 from .display import UI
-from .piece import Color
+from .piece import Color, Piece
 
 
 class Game:
@@ -25,66 +26,29 @@ class Game:
     def get_file_and_rank(self) -> int:
         while True:
             loc = self.display.get_input("Enter position (e.g., e2): ").lower()
-            if not (len(loc) == 2 and loc[0] in "abcdefgh" and loc[1] in "12345678"):
-                self.display.show_err(
-                    "Invalid input. Please enter a valid position like 'e2'."
-                )
-                continue
-            return self.notation_to_loc(loc)
+            if len(loc) == 2 and loc[0] in "abcdefgh" and loc[1] in "12345678":
+                return self.notation_to_loc(loc)
+            elif loc == "exit":
+                return -1
+            self.display.show_err(
+                "Invalid input. Please enter a valid position like 'e2'."
+            )
 
-    def list_moves(self) -> None:
-        while True:
-            loc = self.get_file_and_rank()
-            piece = self.board.board[loc]
-            if piece is None:
-                self.display.show_err("No piece at the given location.")
-                continue
-            if piece.color != self.turn:
-                self.display.show_err("It's not this piece's turn to move.")
-                continue
-            break
+    def list_moves(self, loc: int) -> list[int]:
+        piece = self.board.get_piece(loc)
+
+        if piece is None:
+            return []
+
+        if piece.color != self.turn:
+            self.display.show_err("It's not this piece's turn to move.")
+            return []
+
         moves = self.board.list_moves(piece)
         if len(moves) == 0:
-            self.display.show_err("No valid moves for this piece.")
-            return
-        self.display.show_board(self.board, self.turn, moves)
+            return []
 
-    def move(self) -> None:
-        while True:
-            src = self.get_file_and_rank()
-            piece = self.board.board[src]
-            if piece is None:
-                self.display.show_err(
-                    "No piece at the given location. Choose another piece."
-                )
-                continue
-            if piece.color != self.turn:
-                self.display.show_err(
-                    "It's not this piece's turn to move. Choose another piece."
-                )
-                continue
-            moves = self.board.list_moves(piece)
-            if len(moves) == 0:
-                self.display.show_err(
-                    "No valid moves for this piece. Choose another piece."
-                )
-                continue
-            self.display.show_board(self.board, self.turn, moves)
-            break
-
-        while True:
-            dst = self.get_file_and_rank()
-            if self.board.is_own(piece, dst):
-                self.display.show_err("Cannot capture your own piece.")
-                continue
-            if dst not in moves:
-                self.display.show_err("Invalid move. Please choose a valid move.")
-                continue
-            break
-
-        self.board.move_piece(piece, dst)
-        self.turn = self.turn.switch()
-        self.display.show_board(self.board, self.turn)
+        return moves
 
     def get_board(self) -> Board:
         return self.board
@@ -94,6 +58,9 @@ class Game:
 
     def run(self) -> None:
         self.display.show_board(self.board, self.turn)
+        moves: list[int] = []
+        cur_selected: Optional[Piece] = None
+
         while True:
             if self.is_end:
                 self.display.show_success("Game over!")
@@ -107,14 +74,21 @@ class Game:
                     self.display.show_success("It's a draw!")
                 break
 
-            cmd = self.display.get_input("cmd>> ").lower()
-            if cmd == "exit":
+            loc = self.get_file_and_rank()
+            if loc < 0:
                 break
-            elif cmd == "move":
-                self.move()
-            elif cmd == "lmv":
-                self.list_moves()
+
+            if len(moves) == 0:
+                moves = self.list_moves(loc)
+                if len(moves) > 0:
+                    cur_selected = self.board.get_piece(loc)
+                    assert cur_selected is not None
             else:
-                self.display.show_err(
-                    "Unknown command. Available commands: move, lmv, exit."
-                )
+                if loc in moves:
+                    assert cur_selected is not None
+                    self.board.move_piece(cur_selected, loc)
+                    self.turn = self.turn.switch()
+                cur_selected = None
+                moves = []
+
+            self.display.show_board(self.board, self.turn, moves)

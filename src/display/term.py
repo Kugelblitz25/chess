@@ -1,5 +1,5 @@
-from .board import Board
-from .piece import Color, Piece
+from src.board import Board
+from src.piece import Color, Piece
 
 LIGHT_BG = "\033[48;5;215m"
 DARK_BG = "\033[48;5;94m"
