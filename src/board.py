@@ -9,6 +9,8 @@ class Board:
         self.fboard: list[list[Piece]] = [[] for _ in range(64)]
         self.ep_candidate: Optional[Piece] = None
         self.pinned: list[Piece] = []
+        self.fen_init = fen
+        self.turn_init = turn
 
         if fen:
             self.pieces = self.load_fen(fen)
@@ -22,6 +24,9 @@ class Board:
             if piece is None:
                 continue
             self.recalc_fboard(piece)
+
+    def reset(self) -> None:
+        self.__init__(self.fen_init, self.turn_init)
 
     def get_size(self) -> int:
         return len(self.board)

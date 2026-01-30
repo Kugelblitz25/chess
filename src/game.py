@@ -9,6 +9,11 @@ class Game:
         self.board = board
         self.display = display
         self.turn = turn
+        self.turn_init = turn
+
+    def restart(self) -> None:
+        self.board.reset()
+        self.turn = self.turn_init
 
     @property
     def is_end(self) -> bool:
@@ -30,9 +35,23 @@ class Game:
                 return self.notation_to_loc(loc)
             elif loc == "exit":
                 return -1
+            elif loc == "restart":
+                return -2
             self.display.show_err(
                 "Invalid input. Please enter a valid position like 'e2'."
             )
+
+    def is_restart(self) -> bool:
+        while True:
+            cmd = self.display.get_input("Exit or Restart:").lower()
+            if cmd == "exit":
+                return False
+            elif cmd == "restart":
+                self.restart()
+                return True
+            else:
+                self.display.show_err("Invalid input. Enter exit or restart")
+                continue
 
     def list_moves(self, loc: int) -> list[int]:
         piece = self.board.get_piece(loc)
@@ -63,22 +82,29 @@ class Game:
 
         while True:
             if self.is_end:
-                self.display.show_success("Game over!")
+                end_message: list[str] = ["Game over!"]
                 if self.board.is_in_check(self.board.get_king(self.turn)):
-                    self.display.show_success("Checkmate!")
-                    self.display.show_success(
-                        f"{'White' if self.turn else 'Black'} wins!"
-                    )
+                    end_message.append("Checkmate!")
+                    end_message.append(f"{'White' if self.turn else 'Black'} wins!")
                 else:
-                    self.display.show_success("Stalemate!")
-                    self.display.show_success("It's a draw!")
+                    end_message.append("Stalemate!")
+                    end_message.append("It's a draw!")
                 self.display.show_board(self.board, self.turn)
-                self.get_file_and_rank()
-                break
+                self.display.show_end_result("\n".join(end_message))
+                moves = []
+                cur_selected = None
+                if self.is_restart():
+                    self.display.show_board(self.board, self.turn)
+                else:
+                    break
 
             loc = self.get_file_and_rank()
-            if loc < 0:
+            if loc == -1:
                 break
+            elif loc < -1:
+                moves = []
+                cur_selected = None
+                self.display.show_err("Enter valid command.")
 
             if len(moves) == 0:
                 moves = self.list_moves(loc)

@@ -39,7 +39,7 @@ class TermDisplay:
     def show_err(self, message: str) -> None:
         print(f"{ERROR_MSG}{message}{RESET}")
 
-    def show_success(self, message: str) -> None:
+    def show_end_result(self, message: str) -> None:
         print(f"{SUCCESS_MSG}{message}{RESET}")
 
     def show_board(

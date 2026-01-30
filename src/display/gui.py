@@ -1,9 +1,8 @@
 import tkinter as tk
-from typing import Optional
+from typing import Optional, cast
 
 from src.board import Board
 from src.piece import Color, Piece
-
 
 LIGHT_SQUARE = "#F0D9B5"
 DARK_SQUARE = "#B58863"
@@ -17,7 +16,6 @@ class TkDisplay:
     def __init__(self) -> None:
         self.board_widget: Optional[Board] = None
         self.side = Color.WHITE
-        self.highlight: list[int] = []
         self.input_queue: list[str] = []
         self.waiting_for_input = False
 
@@ -55,12 +53,19 @@ class TkDisplay:
         )
         self.message_label.pack(anchor=tk.CENTER, pady=0)
 
-        self.root.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.root.protocol("WM_DELETE_WINDOW", self._close)
         self.canvas.bind("<Button-1>", self._on_board_click)
+        self.is_running = True
 
-    def _on_closing(self) -> None:
+    def _close(self) -> None:
+        self.is_running = False
         self.root.destroy()
         self.input_queue.append("exit")
+
+    def _restart(self, event: tk.Event) -> None:
+        self.input_queue.append("restart")
+        btn = cast(tk.Button, event.widget)
+        btn.master.destroy()
 
     def _get_piece_symbol(self, piece: Piece) -> str:
         symbols = {
@@ -73,15 +78,10 @@ class TkDisplay:
         }
         return symbols[piece.notation][piece.color]
 
-    def _draw_board(self) -> None:
+    def _draw_board(self, board: Board, highlight: list[int]) -> None:
         self.canvas.delete("all")
         self.rank_canvas.delete("all")
         self.file_canvas.delete("all")
-
-        if self.board_widget is None:
-            return
-
-        highlight_set = set(self.highlight)
 
         for r in range(8):
             for f in range(8):
@@ -95,7 +95,7 @@ class TkDisplay:
                 y2 = y1 + SQUARE_SIZE
 
                 is_light = (file + rank) % 2 == 0
-                is_highlighted = loc in highlight_set
+                is_highlighted = loc in highlight
 
                 if is_highlighted:
                     color = HIGHLIGHT_COLOR
@@ -104,7 +104,7 @@ class TkDisplay:
 
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="")
 
-                piece = self.board_widget.board[loc]
+                piece = board.board[loc]
 
                 if is_highlighted and piece is None:
                     cx = (x1 + x2) / 2
@@ -151,7 +151,7 @@ class TkDisplay:
                 font=("Arial", 14),
             )
 
-    def _on_board_click(self, event) -> None:
+    def _on_board_click(self, event: tk.Event) -> None:
         self.message_label.config(text="")
         f = event.x // SQUARE_SIZE
         r = event.y // SQUARE_SIZE
@@ -171,15 +171,17 @@ class TkDisplay:
         self,
         board: Board,
         side: Color,
-        highlight: list[int] | None = None,
+        highlight: Optional[list[int]] = None,
     ) -> None:
-        self.board_widget = board
         self.side = side
-        self.highlight = highlight if highlight is not None else []
-        self._draw_board()
+        highlight = highlight if highlight is not None else []
+        self._draw_board(board, highlight)
         self.root.update()
 
     def get_input(self, query: str) -> str:
+        if not self.is_running:
+            return "exit"
+
         self.waiting_for_input = True
 
         while not self.input_queue:
@@ -193,9 +195,36 @@ class TkDisplay:
         self.message_label.config(text=f"Error: {message}", fg="red")
         self.root.update()
 
-    def show_success(self, message: str) -> None:
-        self.message_label.config(text=message, fg="green")
-        self.root.update()
+    def show_end_result(self, message: str) -> None:
+        banner_frame = tk.Frame(self.root, bg="#f0f0f0", bd=5, relief=tk.RAISED)
+        banner_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
-    def run(self) -> None:
-        self.root.mainloop()
+        lbl_message = tk.Label(
+            banner_frame,
+            text=message,
+            font=("Arial", 20, "bold"),
+            bg="#f0f0f0",
+            padx=20,
+            pady=10,
+        )
+        lbl_message.grid(row=0, columnspan=3)
+
+        btn_exit = tk.Button(
+            banner_frame,
+            text="Exit Game",
+            bg="#ffcccc",
+            font=("Arial", 12),
+            command=self._close,
+        )
+        btn_exit.grid(row=1, column=0)
+
+        btn_restart = tk.Button(
+            banner_frame,
+            text="Play Again",
+            bg="#ccffcc",
+            font=("Arial", 12),
+        )
+        btn_restart.grid(row=1, column=2)
+        btn_restart.bind("<Button-1>", self._restart)
+
+        self.root.update()
