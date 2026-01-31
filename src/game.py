@@ -115,7 +115,7 @@ class Game:
                 if loc in moves:
                     assert cur_selected is not None
                     self.board.move_piece(cur_selected, loc)
-                    self.turn = self.turn.switch()
+                    self.turn = self.turn.other
                 cur_selected = None
                 moves = []
 

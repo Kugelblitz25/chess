@@ -10,7 +10,8 @@ class Color(IntEnum):
     WHITE = 0
     BLACK = 1
 
-    def switch(self) -> "Color":
+    @property
+    def other(self) -> "Color":
         return Color(self.value ^ 1)
 
 
@@ -35,7 +36,8 @@ class Piece(ABC):
     id: int
     loc: int
     notation: str = field(init=False)
-    ctrl_locs: list[int] = field(default_factory=list[int])
+    moves: int = field(init=False, default=0)
+    ctrls: int = field(init=False, default=0)
     captured: bool = False
     has_moved: bool = False
     is_checked: bool = False
@@ -56,7 +58,7 @@ class Piece(ABC):
 
     @property
     def nmoves(self) -> int:
-        return len(self.ctrl_locs)
+        return self.moves.bit_count()
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
@@ -75,6 +77,13 @@ class Piece(ABC):
         color = Color(notation.islower())
         ptype = cls.get_type_from_notation(notation)
         return piece_class(ptype | color, loc)
+
+    @classmethod
+    def bb_to_loc(cls, bb: int) -> Iterator[int]:
+        while bb > 0:
+            lsb = bb & -bb
+            yield lsb.bit_length() - 1
+            bb ^= lsb
 
     def to_notation(self) -> str:
         if self.color == Color.BLACK:
@@ -109,7 +118,3 @@ class Piece(ABC):
         if target is None:
             return (loc, False)
         return (loc, True)
-
-
-from .pawn import Pawn
-from .rook import Rook
