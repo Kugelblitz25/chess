@@ -1,23 +1,24 @@
 from typing import Optional
+from .engine import Engine
 from .board import Board
 from .display import UI
 from .piece import Color, Piece
 
 
 class Game:
-    def __init__(self, board: Board, display: UI, turn: Color = Color.WHITE) -> None:
-        self.board = board
+    def __init__(self, board: Engine, display: UI, turn: Color = Color.WHITE) -> None:
+        self.engine = board
         self.display = display
         self.turn = turn
         self.turn_init = turn
 
     def restart(self) -> None:
-        self.board.reset()
+        self.engine.reset()
         self.turn = self.turn_init
 
     @property
     def is_end(self) -> bool:
-        return self.board.nmoves(self.turn) == 0
+        return self.engine.nmoves(self.turn) == 0
 
     def notation_to_loc(self, notation: str) -> int:
         file = ord(notation[0].lower()) - ord("a")
@@ -54,7 +55,7 @@ class Game:
                 continue
 
     def list_moves(self, loc: int) -> list[int]:
-        piece = self.board.get_piece(loc)
+        piece = self.engine.get_piece(loc)
 
         if piece is None:
             return []
@@ -63,38 +64,38 @@ class Game:
             self.display.show_err("It's not this piece's turn to move.")
             return []
 
-        moves = self.board.list_moves(piece)
+        moves = self.engine.list_moves(piece)
         if len(moves) == 0:
             return []
 
         return moves
 
     def get_board(self) -> Board:
-        return self.board
+        return self.engine.board
 
     def get_turn(self) -> Color:
         return self.turn
 
     def run(self) -> None:
-        self.display.show_board(self.board, self.turn)
+        self.display.show_board(self.engine.get_board(), self.turn)
         moves: list[int] = []
         cur_selected: Optional[Piece] = None
 
         while True:
             if self.is_end:
                 end_message: list[str] = ["Game over!"]
-                if self.board.is_in_check(self.board.get_king(self.turn)):
+                if self.engine.is_in_check(self.turn):
                     end_message.append("Checkmate!")
                     end_message.append(f"{'White' if self.turn else 'Black'} wins!")
                 else:
                     end_message.append("Stalemate!")
                     end_message.append("It's a draw!")
-                self.display.show_board(self.board, self.turn)
+                self.display.show_board(self.engine.get_board(), self.turn)
                 self.display.show_end_result("\n".join(end_message))
                 moves = []
                 cur_selected = None
                 if self.is_restart():
-                    self.display.show_board(self.board, self.turn)
+                    self.display.show_board(self.engine.get_board(), self.turn)
                 else:
                     break
 
@@ -109,14 +110,14 @@ class Game:
             if len(moves) == 0:
                 moves = self.list_moves(loc)
                 if len(moves) > 0:
-                    cur_selected = self.board.get_piece(loc)
+                    cur_selected = self.engine.get_piece(loc)
                     assert cur_selected is not None
             else:
                 if loc in moves:
                     assert cur_selected is not None
-                    self.board.move_piece(cur_selected, loc)
+                    self.engine.move_piece(cur_selected, loc)
                     self.turn = self.turn.other
                 cur_selected = None
                 moves = []
 
-            self.display.show_board(self.board, self.turn, moves)
+            self.display.show_board(self.engine.get_board(), self.turn, moves)

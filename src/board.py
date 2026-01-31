@@ -26,32 +26,27 @@ class AttackBoard:
 
 
 class Board:
-    def __init__(self, fen: Optional[str] = None, turn: bool = False) -> None:
-        self.board: list[Piece | None] = [None] * 64
-        self.fboard = AttackBoard(64)
+    def __init__(self, size: int = 64) -> None:
+        self.board: list[Piece | None] = [None] * size
         self.ep_candidate: Optional[Piece] = None
         self.pinned: list[Piece] = []
-        self.fen_init = fen
-        self.turn_init = turn
+        self.pieces: list[list[Piece]] = [[] for _ in range(2 * max(Type))]
 
-        if fen:
-            self.pieces = self.load_fen(fen)
-            self.turn = turn
-        else:
-            self.pieces = self.setup_starting_position()
-            self.turn = False  # White starts
+    def is_empty(self, loc: int):
+        return self.board[loc] is None
 
-        for loc in range(64):
-            piece = self.board[loc]
-            if piece is None:
-                continue
-            self.recalc_fboard(piece)
+    def put_piece(self, piece: Piece, loc: int) -> None:
+        self.board[loc] = piece
+        self.pieces[piece.id].append(piece)
 
-    def reset(self) -> None:
-        self.__init__(self.fen_init, self.turn_init)
+    def remove_piece(self, piece: Piece) -> None:
+        self.board[piece.loc] = None
+        self.pieces[piece.id].remove(piece)
 
-    def get_size(self) -> int:
-        return len(self.board)
+    def move_piece(self, piece: Piece, loc: int) -> None:
+        self.board[piece.loc] = None
+        self.board[loc] = piece
+        piece.move(loc)
 
     def get_piece(self, loc: int) -> Optional[Piece]:
         return self.board[loc]
@@ -108,314 +103,9 @@ class Board:
     def get_king(self, color: Color) -> Piece:
         return self.pieces[Type.KING | color][0]
 
-    def load_fen(self, fen: str) -> list[list[Piece]]:
-        board_state = fen.split(" ")[0]
-        rows = board_state.split("/")
-        pieces: list[list[Piece]] = [[] for _ in range(2 * max(Type))]
-
-        for r, row in enumerate(rows):
-            file = 0
-            for char in row:
-                if char.isdigit():
-                    file += int(char)
-                else:
-                    loc = (file << 3) | (7 - r)
-                    piece = Piece.from_notation(char, loc)
-                    pieces[piece.id].append(piece)
-                    self.board[loc] = piece
-                    file += 1
-        return pieces
-
-    def setup_starting_position(self) -> list[list[Piece]]:
-        return self.load_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
-
-    def nmoves(self, color: Color) -> int:
-        return sum(p.nmoves for p in self.get_all_pieces(color))
-
     def is_adj_file(self, loc1: int, loc2: int) -> bool:
         return abs((loc1 >> 3) - (loc2 >> 3)) == 1
 
-    def _is_ep_pseudopinned(self, p1: Piece, p2: Piece, king: Piece) -> bool:
-        for attacker in self.fboard.get_attackers(king.color.other, p1.loc):
-            if not attacker.is_sliding:
-                continue
-
-            dir1 = attacker.is_in_dir(king.loc)
-            if dir1 is None:
-                continue
-
-            dir2 = attacker.is_in_dir(p1.loc)
-            if dir2 is None:
-                raise ValueError("Invalid State")
-
-            if dir1 != dir2:
-                continue
-
-            ppin = True
-            for i in self.iterate_between(p1, king):
-                target = self.get_piece(i)
-                if target is not None and target != p2:
-                    ppin = False
-                    break
-            if ppin:
-                return True
-        return False
-
-    def is_valid_move(self, piece: Piece, loc: int) -> bool:
-        if piece.type != Type.PAWN:
-            return not self.is_own(piece, loc)
-
-        if not self.is_adj_file(piece.loc, loc):
-            return self.get_piece(loc) is None
-
-        if self.board[loc] is not None:
-            return True
-
-        if self.ep_candidate is None or abs(piece.loc - self.ep_candidate.loc) != 8:
-            return False
-
-        if (loc >> 3) != (self.ep_candidate.loc >> 3):
-            return False
-
-        # Check whether ep_candidate is can be taken without check
-        king = self.get_king(piece.color)
-        if self._is_ep_pseudopinned(self.ep_candidate, piece, king):
-            return False
-        if self._is_ep_pseudopinned(piece, self.ep_candidate, king):
-            return False
-        return True
-
-    def does_blocks_check(self, piece: Piece, loc: int) -> bool:
-        king = self.get_king(piece.color)
-
-        if not king.is_checked:
-            return True
-
-        if len(king.checked_by) != 1:
-            return piece.type == Type.KING and not self.is_threatened(piece, loc)
-
-        if piece.type == Type.KING:
-            return not self.is_threatened(piece, loc)
-
-        attacker = king.checked_by[0]
-        if loc == attacker.loc:
-            return True
-
-        if (attacker.ctrls & (1 << loc)) == 0:
-            return False
-
-        check_dir = attacker.is_in_dir(king.loc)
-        if check_dir is None:
-            raise ValueError("Invalid State.")
-        move_dir = attacker.is_in_dir(loc)
-        if move_dir is None:
-            raise ValueError("Invalid State.")
-
-        if move_dir != check_dir:
-            return False
-
-        if check_dir[0] != 0:
-            t = ((loc >> 3) - (attacker.loc >> 3)) / (
-                (king.loc >> 3) - (attacker.loc >> 3)
-            )
-        else:
-            t = ((loc & 7) - (attacker.loc & 7)) / ((king.loc & 7) - (attacker.loc & 7))
-
-        return 0 < t < 1
-
-    def does_handle_pin(self, piece: Piece, loc: int) -> bool:
-        if piece.type == Type.KING:
-            return True
-
-        if not piece.is_checked:
-            return True
-
-        dir = piece.checked_by[0].is_in_dir(piece.loc)
-
-        if dir is None:
-            return True
-
-        inv_dir = (dir[0] * -1, dir[1] * -1)
-
-        move_dir = piece.is_in_dir(loc)
-
-        if move_dir is None:
-            return False
-
-        return move_dir == dir or move_dir == inv_dir
-
-    def is_own(self, piece: Piece, loc: int) -> bool:
-        target = self.board[loc]
-        return target is not None and target.color == piece.color
-
-    def is_threatened(self, piece: Piece, loc: int) -> bool:
-        for attacker in self.fboard.get_attackers(piece.color.other, piece.loc):
-            if attacker.type == Type.PAWN:
-                return self.is_adj_file(attacker.loc, loc)
-            else:
-                return True
-        return False
-
-    def iterate_between(self, src: Piece, dst: Piece) -> Iterator[int]:
-        dir = src.is_in_dir(dst.loc)
-        if dir is None:
-            return
-
-        df, dr = dir
-        f, r = src.loc >> 3, src.loc & 7
-        while True:
-            f += df
-            r += dr
-            if not (0 <= f < 8 and 0 <= f < 8):
-                break
-            loc = (f << 3) | r
-            if dst.loc == loc:
-                break
-            yield loc
-
-    def is_pinning(self, piece: Piece) -> Optional[Piece]:
-        other_king = self.get_king(piece.color.other)
-        pinned: Optional[Piece] = None
-        for loc in self.iterate_between(piece, other_king):
-            if self.is_own(other_king, loc):
-                if pinned is None:
-                    pinned = self.board[loc]
-                else:
-                    return None
-        return pinned
-
-    def recalc_fboard(self, piece: Piece) -> None:
-        self.fboard.remove_attacker(piece)
-        piece.moves = 0
-        piece.ctrls = 0
-
-        if piece.captured:
-            return
-
-        for loc in piece.gen_moves(self.board):
-            if not self.does_blocks_check(piece, loc):
-                continue
-            if not self.does_handle_pin(piece, loc):
-                continue
-            piece.ctrls ^= 1 << loc
-            if self.is_valid_move(piece, loc):
-                piece.moves ^= 1 << loc
-
-        self.fboard.add_attacker(piece)
-
-        if piece.is_sliding:
-            pinned = self.is_pinning(piece)
-            if pinned is None:
-                return None
-            self.add_pin(piece, pinned)
-
-    def list_moves(self, piece: Piece) -> list[int]:
-        return list(Piece.bb_to_loc(piece.moves))
-
-    def is_in_check(self, king: Piece) -> bool:
-        cheked_by: list[Piece] = []
-        for attacker in self.fboard.get_attackers(king.color.other, king.loc):
-            if attacker.type == Type.PAWN and self.is_adj_file(king.loc, attacker.loc):
-                cheked_by.append(attacker)
-            else:
-                cheked_by.append(attacker)
-        king.checked_by = cheked_by
-        if len(cheked_by) > 0:
-            return True
-        return False
-
     def capture(self, piece: Piece) -> None:
         piece.captured = True
-        self.board[piece.loc] = None
-        self.pieces[piece.id].remove(piece)
-        self.recalc_fboard(piece)
-
-    def add_pin(self, piece: Piece, pinned: Piece) -> None:
-        if pinned.is_checked:
-            return None
-        pinned.is_checked = True
-        pinned.checked_by.append(piece)
-        self.pinned.append(pinned)
-        self.recalc_fboard(pinned)
-        self.recalc_fboard(self.get_king(piece.color))
-
-    def remove_pin(self, piece: Piece, pinned: Piece) -> None:
-        pinned.is_checked = False
-        pinned.checked_by = []
-        self.pinned.remove(pinned)
-        self.recalc_fboard(pinned)
-        self.recalc_fboard(self.get_king(piece.color))
-
-    def filter_pins(self) -> None:
-        for piece in self.pinned[:]:
-            if piece.checked_by[0].captured:
-                self.remove_pin(piece.checked_by[0], piece)
-            pinned = self.is_pinning(piece.checked_by[0])
-            if piece.is_checked and not pinned:
-                self.remove_pin(piece.checked_by[0], piece)
-
-    def handle_ep(self, piece: Piece, loc: int) -> set[Piece]:
-        self.ep_candidate = None
-        if piece.type != Type.PAWN:
-            return set()
-
-        recalc_targets: set[Piece] = set()
-
-        if self.is_adj_file(piece.loc, loc) and self.board[loc] is None:
-            ep_loc = (loc & 56) | (piece.loc & 7)
-            ep_candidate = self.board[ep_loc]
-            if ep_candidate:
-                self.capture(ep_candidate)
-                recalc_targets.update(self.fboard.get_pattackers(ep_loc))
-
-        if abs(piece.loc - loc) == 2:
-            self.ep_candidate = piece
-            file, rank = loc >> 3, loc & 7
-            if 0 <= file - 1:
-                target = self.board[((file - 1) << 3) | rank]
-                if target is not None and target.id == Type.PAWN | piece.color.other:
-                    recalc_targets.add(target)
-            if file + 1 < 8:
-                target = self.board[((file + 1) << 3) | rank]
-                if target is not None and target.id == Type.PAWN | piece.color.other:
-                    recalc_targets.add(target)
-
-        return recalc_targets
-
-    def handle_castel(self, piece: Piece, loc: int) -> list[Piece]:
-        if piece.type != Type.KING:
-            return []
-
-        return []
-
-    def handle_checks(self) -> None:
-        for king in [self.get_king(Color.WHITE), self.get_king(Color.BLACK)]:
-            if king.is_checked != self.is_in_check(king):
-                king.is_checked = not king.is_checked
-                for p in self.get_all_pieces(king.color):
-                    self.recalc_fboard(p)
-
-    def move_piece(self, piece: Piece, loc: int) -> None:
-        target = self.board[loc]
-
-        recalc_targets = {
-            piece,
-        }
-
-        recalc_targets.update(self.handle_ep(piece, loc))
-        recalc_targets.update(self.handle_castel(piece, loc))
-        recalc_targets.update(self.fboard.get_pattackers(loc))
-        recalc_targets.update(self.fboard.get_pattackers(piece.loc))
-
-        if target is not None:
-            self.capture(target)
-
-        self.board[loc] = piece
-        self.board[piece.loc] = None
-        piece.move(loc)
-
-        for p in recalc_targets:
-            self.recalc_fboard(p)
-
-        self.handle_checks()
-        self.filter_pins()
+        self.remove_piece(piece)

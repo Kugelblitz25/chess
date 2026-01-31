@@ -1,4 +1,4 @@
-from src.board import Board
+from src.engine import Engine
 from src.game import Game
 
 from src.display.gui import TkDisplay
@@ -7,10 +7,10 @@ from src.display.gui import TkDisplay
 
 def main() -> None:
     print("Hello from chess-engine!")
-    board = Board()
+    engine = Engine()
     display = TkDisplay()
     # board = Board("rnbqkbnr/1ppppppp/8/8/p1B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 0 1")
-    game = Game(board, display)
+    game = Game(engine, display)
     game.run()
 
 
