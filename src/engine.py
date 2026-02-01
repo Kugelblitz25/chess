@@ -178,7 +178,7 @@ class Engine:
         while True:
             f += df
             r += dr
-            if not (0 <= f < 8 and 0 <= f < 8):
+            if not (0 <= f < 8 and 0 <= r < 8):
                 break
             loc = (f << 3) | r
             if dst.loc == loc:
@@ -299,13 +299,13 @@ class Engine:
                     recalc_targets.add(target)
             if file + 1 < 8:
                 target_loc = ((file + 1) << 3) | rank
-                target = self.board.get_piece(loc)
+                target = self.board.get_piece(target_loc)
                 if target is not None and target.id == Type.PAWN | piece.color.other:
                     recalc_targets.add(target)
 
         return recalc_targets
 
-    def handle_castel(self, piece: Piece, loc: int) -> list[Piece]:
+    def handle_castle(self, piece: Piece, loc: int) -> list[Piece]:
         if piece.type != Type.KING:
             return []
 
@@ -327,7 +327,7 @@ class Engine:
         }
 
         recalc_targets.update(self.handle_pawn_move(piece, loc))
-        recalc_targets.update(self.handle_castel(piece, loc))
+        recalc_targets.update(self.handle_castle(piece, loc))
         recalc_targets.update(self.fboard.get_pattackers(loc))
         recalc_targets.update(self.fboard.get_pattackers(piece.loc))
 

@@ -1,7 +1,7 @@
+from src.display.gui import TkDisplay
 from src.engine import Engine
 from src.game import Game
 
-from src.display.gui import TkDisplay
 # from src.display.term import TermDisplay
 
 
