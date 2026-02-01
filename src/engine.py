@@ -113,6 +113,10 @@ class Engine:
         if loc == attacker.loc:
             return True
 
+        if not attacker.is_sliding:
+            # Only way to escape from a check with non sliding piece is to either move the king or capture the attacker
+            return False
+
         if (attacker.ctrls & (1 << loc)) == 0:
             return False
 
@@ -161,7 +165,7 @@ class Engine:
         return target is not None and target.color == piece.color
 
     def is_threatened(self, piece: Piece, loc: int) -> bool:
-        for attacker in self.fboard.get_attackers(piece.color.other, piece.loc):
+        for attacker in self.fboard.get_attackers(piece.color.other, loc):
             if attacker.type == Type.PAWN:
                 return self.board.is_adj_file(attacker.loc, loc)
             else:
