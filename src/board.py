@@ -32,7 +32,7 @@ class Board:
         self.pinned: list[Piece] = []
         self.pieces: list[list[Piece]] = [[] for _ in range(2 * max(Type))]
 
-    def is_empty(self, loc: int):
+    def is_empty(self, loc: int) -> bool:
         return self.board[loc] is None
 
     def put_piece(self, piece: Piece, loc: int) -> None:

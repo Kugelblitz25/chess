@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Iterator, Optional
-
-type Board = list["Piece | None"]
+from typing import Any, Generator, Iterator, Optional
 
 
 class Color(IntEnum):
@@ -40,8 +38,6 @@ class Piece(ABC):
     ctrls: int = field(init=False, default=0)
     captured: bool = False
     has_moved: bool = False
-    is_checked: bool = False
-    checked_by: list["Piece"] = field(default_factory=list["Piece"])
     directions: list[tuple[int, int]] = field(init=False)
 
     @property
@@ -60,7 +56,7 @@ class Piece(ABC):
     def nmoves(self) -> int:
         return self.moves.bit_count()
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs: dict[str, Any]) -> None:
         super().__init_subclass__(**kwargs)
         NOT_MAP[cls.notation] = cls
 
@@ -92,7 +88,7 @@ class Piece(ABC):
             return self.notation.upper()
 
     @abstractmethod
-    def gen_moves(self, board: Board) -> Iterator[int]:
+    def gen_moves(self) -> Generator[int, Optional[bool], None]:
         pass
 
     def move(self, loc: int) -> None:
@@ -108,13 +104,7 @@ class Piece(ABC):
                 return (f, r)
         return None
 
-    def validate_move(
-        self, file: int, rank: int, board: Board
-    ) -> tuple[Optional[int], bool]:
+    def is_in_bounds(self, file: int, rank: int) -> bool:
         if not (0 <= file < 8 and 0 <= rank < 8):
-            return (None, True)
-        loc = (file << 3) | rank
-        target = board[loc]
-        if target is None:
-            return (loc, False)
-        return (loc, True)
+            return False
+        return True

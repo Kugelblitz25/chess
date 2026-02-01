@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Generator, Optional
 
-from .base import Board, Piece
+from .base import Piece
 
 
 @dataclass(eq=False, slots=True)
@@ -23,26 +23,20 @@ class Pawn(Piece):
             (1, direction),
         ]
 
-    def gen_moves(self, board: Board) -> Iterator[int]:
+    def gen_moves(self) -> Generator[int, Optional[int], None]:
         direction = -1 if self.color else 1
         next_rank = (self.loc & 7) + direction
         file = self.loc >> 3
 
-        move, _ = self.validate_move(file, next_rank, board)
-        if move is None:
-            return None
-
-        yield move
+        if self.is_in_bounds(file, next_rank):
+            yield (file << 3) | next_rank
 
         if not self.has_moved:
-            double_move, _ = self.validate_move(file, next_rank + direction, board)
-            if double_move is not None:
-                yield double_move
+            if self.is_in_bounds(file, next_rank + direction):
+                yield (file << 3) | (next_rank + direction)
 
-        left_loc, _ = self.validate_move(file - 1, next_rank, board)
-        if left_loc is not None:
-            yield left_loc
+        if self.is_in_bounds(file - 1, next_rank):
+            yield ((file - 1) << 3) | next_rank
 
-        right_loc, _ = self.validate_move(file + 1, next_rank, board)
-        if right_loc is not None:
-            yield right_loc
+        if self.is_in_bounds(file + 1, next_rank):
+            yield ((file + 1) << 3) | next_rank

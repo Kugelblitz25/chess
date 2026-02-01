@@ -1,7 +1,8 @@
 from typing import Optional
-from .engine import Engine
+
 from .board import Board
 from .display import UI
+from .engine import Engine
 from .piece import Color, Piece
 
 

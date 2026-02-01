@@ -1,11 +1,10 @@
-from .base import Piece, Color, Type
-
-from .pawn import Pawn
-from .knight import Knight
+from .base import Color, Piece, Type
 from .bishop import Bishop
-from .rook import Rook
-from .queen import Queen
 from .king import King
+from .knight import Knight
+from .pawn import Pawn
+from .queen import Queen
+from .rook import Rook
 
 __all__ = [
     "Piece",

@@ -10,7 +10,7 @@ class Engine:
         self.fboard = AttackBoard(64)
         self.fen = fen or "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
         self.ep_candidate: Optional[Piece] = None
-        self.pinned: list[Piece] = []
+        self.pinned_or_checked: dict[Piece, list[Piece]] = {}
 
         self.load_fen(self.fen)
 
@@ -100,16 +100,16 @@ class Engine:
     def does_blocks_check(self, piece: Piece, loc: int) -> bool:
         king = self.board.get_king(piece.color)
 
-        if not king.is_checked:
+        if king not in self.pinned_or_checked:
             return True
 
-        if len(king.checked_by) != 1:
+        if len(self.pinned_or_checked[king]) != 1:
             return piece.type == Type.KING and not self.is_threatened(piece, loc)
 
         if piece.type == Type.KING:
             return not self.is_threatened(piece, loc)
 
-        attacker = king.checked_by[0]
+        attacker = self.pinned_or_checked[king][0]
         if loc == attacker.loc:
             return True
 
@@ -139,10 +139,10 @@ class Engine:
         if piece.type == Type.KING:
             return True
 
-        if not piece.is_checked:
+        if piece not in self.pinned_or_checked:
             return True
 
-        dir = piece.checked_by[0].is_in_dir(piece.loc)
+        dir = self.pinned_or_checked[piece][0].is_in_dir(piece.loc)
 
         if dir is None:
             return True
@@ -204,7 +204,9 @@ class Engine:
         if piece.captured:
             return
 
-        for loc in piece.gen_moves(self.board.board):
+        generator = piece.gen_moves()
+
+        for loc in generator:
             if not self.does_blocks_check(piece, loc):
                 continue
             if not self.does_handle_pin(piece, loc):
@@ -212,6 +214,12 @@ class Engine:
             piece.ctrls ^= 1 << loc
             if self.is_valid_move(piece, loc):
                 piece.moves ^= 1 << loc
+
+            if piece.is_sliding and not self.board.is_empty(loc):
+                try:
+                    generator.send(True)
+                except StopIteration:
+                    pass
 
         self.fboard.add_attacker(piece)
 
@@ -234,36 +242,39 @@ class Engine:
                 cheked_by.append(attacker)
             else:
                 cheked_by.append(attacker)
-        king.checked_by = cheked_by
         if len(cheked_by) > 0:
+            self.pinned_or_checked[king] = cheked_by
             return True
-        return False
+        else:
+            self.pinned_or_checked.pop(king, None)
+            return False
 
     def add_pin(self, piece: Piece, pinned: Piece) -> None:
-        if pinned.is_checked:
+        if pinned in self.pinned_or_checked:
             return
-        pinned.is_checked = True
-        pinned.checked_by.append(piece)
-        self.pinned.append(pinned)
+        self.pinned_or_checked[pinned] = [piece]
         self.update_fboard(pinned)
         self.update_fboard(self.board.get_king(piece.color))
 
     def remove_pin(self, piece: Piece, pinned: Piece) -> None:
-        pinned.is_checked = False
-        pinned.checked_by = []
-        self.pinned.remove(pinned)
+        self.pinned_or_checked.pop(pinned, None)
         self.update_fboard(pinned)
         self.update_fboard(self.board.get_king(piece.color))
 
     def filter_pins(self) -> None:
-        for piece in self.pinned[:]:
-            if piece.checked_by[0].captured:
-                self.remove_pin(piece.checked_by[0], piece)
-            pinned = self.is_pinning(piece.checked_by[0])
-            if piece.is_checked and not pinned:
-                self.remove_pin(piece.checked_by[0], piece)
+        to_be_removed: list[tuple[Piece, Piece]] = []
+        for piece, checked_by in self.pinned_or_checked.items():
+            if piece.type == Type.KING:
+                continue
+            if checked_by[0].captured:
+                to_be_removed.append((checked_by[0], piece))
+            pinned = self.is_pinning(checked_by[0])
+            if piece in self.pinned_or_checked and not pinned:
+                to_be_removed.append((checked_by[0], piece))
+        for p1, p2 in to_be_removed:
+            self.remove_pin(p1, p2)
 
-    def handle_ep(self, piece: Piece, loc: int) -> set[Piece]:
+    def handle_pawn_move(self, piece: Piece, loc: int) -> set[Piece]:
         self.ep_candidate = None
         if piece.type != Type.PAWN:
             return set()
@@ -303,8 +314,8 @@ class Engine:
     def handle_checks(self) -> None:
         for color in Color:
             king = self.board.get_king(color)
-            if king.is_checked != self.is_in_check(color):
-                king.is_checked = not king.is_checked
+            is_checked = king in self.pinned_or_checked
+            if is_checked != self.is_in_check(color):
                 for p in self.board.get_all_pieces(color):
                     self.update_fboard(p)
 
@@ -315,7 +326,7 @@ class Engine:
             piece,
         }
 
-        recalc_targets.update(self.handle_ep(piece, loc))
+        recalc_targets.update(self.handle_pawn_move(piece, loc))
         recalc_targets.update(self.handle_castel(piece, loc))
         recalc_targets.update(self.fboard.get_pattackers(loc))
         recalc_targets.update(self.fboard.get_pattackers(piece.loc))

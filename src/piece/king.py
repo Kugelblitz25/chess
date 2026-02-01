@@ -1,7 +1,7 @@
 from dataclasses import dataclass
-from typing import Iterator
+from typing import Generator, Optional
 
-from .base import Piece, Board
+from .base import Piece
 
 
 @dataclass(eq=False, slots=True)
@@ -9,12 +9,11 @@ class King(Piece):
     notation = "K"
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1), (1, 0), (-1, 0), (0, 1), (0, -1)]
 
-    def gen_moves(self, board: Board) -> Iterator[int]:
+    def gen_moves(self) -> Generator[int, Optional[bool], None]:
         rank = self.loc & 7
         file = self.loc >> 3
         for df, dr in self.directions:
             f = file + df
             r = rank + dr
-            move, _ = self.validate_move(f, r, board)
-            if move is not None:
-                yield move
+            if self.is_in_bounds(f, r):
+                yield (f << 3) | r
