@@ -10,7 +10,7 @@ class Pawn(Piece):
     notation = "P"
 
     def __post_init__(self) -> None:
-        rank = self.loc & 7
+        rank = self.loc.rank
         if (self.color and rank == 6) or (not self.color and rank == 1):
             self.has_moved = False
         else:
@@ -26,19 +26,17 @@ class Pawn(Piece):
 
     def gen_moves(self) -> Generator[Square, Optional[int], None]:
         direction = -1 if self.color else 1
-        file = self.loc.file
-        rank = self.loc.rank
 
-        sq = Square.from_coords(file, rank + direction)
+        sq = self.loc.move_dir(0, direction)
         if sq is not None:
             yield sq
 
         if not self.has_moved:
-            sq2 = Square.from_coords(file, rank + 2 * direction)
+            sq2 = self.loc.move_dir(0, 2 * direction)
             if sq2 is not None:
                 yield sq2
 
         for df in (-1, 1):
-            sq = Square.from_coords(file + df, rank + direction)
+            sq = self.loc.move_dir(df, direction)
             if sq is not None:
                 yield sq

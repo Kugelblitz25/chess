@@ -12,14 +12,10 @@ class Rook(Piece):
 
     def gen_moves(self) -> Generator[Square, Optional[bool], None]:
         for df, dr in self.directions:
-            f, r = self.loc.file, self.loc.rank
-            while True:
-                f += df
-                r += dr
-                sq = Square.from_coords(f, r)
-                if sq is None:
-                    break
-                stp = yield sq
+            sq: Square = self.loc
+            while (next_sq := sq.move_dir(df, dr)) is not None:
+                stp = yield next_sq
+                sq = next_sq
                 if stp:
                     yield Square(0)  # consumed by generator.send(); never seen by for-loop
                     break

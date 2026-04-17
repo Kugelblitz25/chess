@@ -107,5 +107,3 @@ class Piece(ABC):
             if f * dr - r * df == 0 and f * df + r * dr > 0:
                 return (f, r)
         return None
-
-

@@ -7,9 +7,6 @@ class Square(int):
     file ∈ [0, 7]  →  a–h
     rank ∈ [0, 7]  →  1–8
     value ∈ [0, 63]
-
-    Because ``Square`` is an ``int`` subclass it can be used directly as a
-    list index and in bitboard arithmetic without any conversion.
     """
 
     __slots__ = ()
@@ -29,7 +26,6 @@ class Square(int):
 
     @classmethod
     def from_coords(cls, file: int, rank: int) -> Optional["Square"]:
-        """Return a Square for the given (file, rank), or None if out of bounds."""
         if not (0 <= file < 8 and 0 <= rank < 8):
             return None
         return cls((file << 3) | rank)
@@ -50,8 +46,10 @@ class Square(int):
         return sq
 
     def is_adj_file(self, other: "Square") -> bool:
-        """Return True if ``other`` is exactly one file away."""
         return abs(self.file - other.file) == 1
+    
+    def move_dir(self, df: int, dr: int) -> Optional["Square"]:
+        return self.from_coords(self.file + df, self.rank + dr)
 
     def __str__(self) -> str:
         return f"{chr(self.file + ord('a'))}{self.rank + 1}"

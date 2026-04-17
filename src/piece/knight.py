@@ -21,6 +21,6 @@ class Knight(Piece):
 
     def gen_moves(self) -> Generator[Square, Optional[bool], None]:
         for df, dr in self.directions:
-            sq = Square.from_coords(self.loc.file + df, self.loc.rank + dr)
+            sq = self.loc.move_dir(df, dr)
             if sq is not None:
                 yield sq

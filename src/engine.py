@@ -178,16 +178,10 @@ class Engine:
             return
 
         df, dr = dir
-        f, r = src.loc.file, src.loc.rank
-        while True:
-            f += df
-            r += dr
-            sq = Square.from_coords(f, r)
-            if sq is None:
-                break
-            if dst.loc == sq:
-                break
-            yield sq
+        sq: Square = src.loc
+        while (next_sq := sq.move_dir(df, dr)) is not None and next_sq != dst.loc:
+            yield next_sq
+            sq = next_sq
 
     def is_pinning(self, piece: Piece) -> Optional[Piece]:
         other_king = self.board.get_king(piece.color.other)
