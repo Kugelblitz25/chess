@@ -2,11 +2,12 @@ from typing import Protocol
 
 from src.board import Board
 from src.piece import Color
+from src.square import Square
 
 
 class UI(Protocol):
     def show_board(
-        self, board: Board, side: Color, highlight: list[int] | None = None
+        self, board: Board, side: Color, highlight: list[Square] | None = None
     ) -> None: ...
 
     def get_input(self, query: str) -> str: ...

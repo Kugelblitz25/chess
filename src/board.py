@@ -1,18 +1,19 @@
 from typing import Iterator, Optional
 
 from .piece import Color, Piece, Type
+from .square import Square
 
 
 class AttackBoard:
     def __init__(self, size: int) -> None:
         self.board: list[list[Piece]] = [[] for _ in range(size)]
 
-    def get_attackers(self, color: Color, loc: int) -> Iterator[Piece]:
+    def get_attackers(self, color: Color, loc: Square) -> Iterator[Piece]:
         for p in self.board[loc]:
             if p.color == color:
                 yield p
 
-    def get_pattackers(self, loc: int) -> Iterator[Piece]:
+    def get_pattackers(self, loc: Square) -> Iterator[Piece]:
         for p in self.board[loc]:
             yield p
 
@@ -28,14 +29,13 @@ class AttackBoard:
 class Board:
     def __init__(self, size: int = 64) -> None:
         self.board: list[Piece | None] = [None] * size
-        self.ep_candidate: Optional[Piece] = None
         self.pinned: list[Piece] = []
         self.pieces: list[list[Piece]] = [[] for _ in range(2 * max(Type))]
 
-    def is_empty(self, loc: int) -> bool:
+    def is_empty(self, loc: Square) -> bool:
         return self.board[loc] is None
 
-    def put_piece(self, piece: Piece, loc: int) -> None:
+    def put_piece(self, piece: Piece, loc: Square) -> None:
         self.board[loc] = piece
         self.pieces[piece.id].append(piece)
 
@@ -43,12 +43,12 @@ class Board:
         self.board[piece.loc] = None
         self.pieces[piece.id].remove(piece)
 
-    def move_piece(self, piece: Piece, loc: int) -> None:
+    def move_piece(self, piece: Piece, loc: Square) -> None:
         self.board[piece.loc] = None
         self.board[loc] = piece
         piece.move(loc)
 
-    def get_piece(self, loc: int) -> Optional[Piece]:
+    def get_piece(self, loc: Square) -> Optional[Piece]:
         return self.board[loc]
 
     def get_piece_from_SAN(
@@ -65,10 +65,10 @@ class Board:
             else:
                 raise ValueError("Invalid Notation: Ambiguous notation")
 
-        loc: Optional[int] = None
+        loc: Optional[Square] = None
 
         if file is not None and rank is not None:
-            loc = (file << 3) | rank
+            loc = Square.from_coords(file, rank)
 
         piece: Optional[Piece] = None
         for p in self.pieces[ptype | color]:
@@ -95,7 +95,7 @@ class Board:
         return piece
 
     def get_all_pieces(self, color: Color) -> list[Piece]:
-        pieces = []
+        pieces: list[Piece] = []
         for t in Type:
             pieces += self.pieces[t | color]
         return pieces
@@ -103,8 +103,8 @@ class Board:
     def get_king(self, color: Color) -> Piece:
         return self.pieces[Type.KING | color][0]
 
-    def is_adj_file(self, loc1: int, loc2: int) -> bool:
-        return abs((loc1 >> 3) - (loc2 >> 3)) == 1
+    def is_adj_file(self, loc1: Square, loc2: Square) -> bool:
+        return loc1.is_adj_file(loc2)
 
     def capture(self, piece: Piece) -> None:
         piece.captured = True

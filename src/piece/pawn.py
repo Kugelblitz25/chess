@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Generator, Optional
 
+from ..square import Square
 from .base import Piece
 
 
@@ -23,20 +24,21 @@ class Pawn(Piece):
             (1, direction),
         ]
 
-    def gen_moves(self) -> Generator[int, Optional[int], None]:
+    def gen_moves(self) -> Generator[Square, Optional[int], None]:
         direction = -1 if self.color else 1
-        next_rank = (self.loc & 7) + direction
-        file = self.loc >> 3
+        file = self.loc.file
+        rank = self.loc.rank
 
-        if self.is_in_bounds(file, next_rank):
-            yield (file << 3) | next_rank
+        sq = Square.from_coords(file, rank + direction)
+        if sq is not None:
+            yield sq
 
         if not self.has_moved:
-            if self.is_in_bounds(file, next_rank + direction):
-                yield (file << 3) | (next_rank + direction)
+            sq2 = Square.from_coords(file, rank + 2 * direction)
+            if sq2 is not None:
+                yield sq2
 
-        if self.is_in_bounds(file - 1, next_rank):
-            yield ((file - 1) << 3) | next_rank
-
-        if self.is_in_bounds(file + 1, next_rank):
-            yield ((file + 1) << 3) | next_rank
+        for df in (-1, 1):
+            sq = Square.from_coords(file + df, rank + direction)
+            if sq is not None:
+                yield sq

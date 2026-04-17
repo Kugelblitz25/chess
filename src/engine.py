@@ -2,6 +2,7 @@ from typing import Iterator, Optional
 
 from .board import AttackBoard, Board
 from .piece import Color, Piece, Type
+from .square import Square
 
 
 class Engine:
@@ -21,7 +22,7 @@ class Engine:
             self.update_fboard(piece)
 
     def reset(self) -> None:
-        self.__init__(self.fen)
+        Engine.__init__(self, self.fen)
 
     def load_fen(self, fen: str) -> None:
         board_state = fen.split(" ")[0]
@@ -33,12 +34,12 @@ class Engine:
                 if char.isdigit():
                     file += int(char)
                 else:
-                    loc = (file << 3) | (7 - r)
+                    loc = Square((file << 3) | (7 - r))
                     piece = Piece.from_notation(char, loc)
                     self.board.put_piece(piece, loc)
                     file += 1
 
-    def get_piece(self, loc: int) -> Optional[Piece]:
+    def get_piece(self, loc: Square) -> Optional[Piece]:
         return self.board.get_piece(loc)
 
     def get_board(self) -> Board:
@@ -73,7 +74,7 @@ class Engine:
                 return True
         return False
 
-    def is_valid_move(self, piece: Piece, loc: int) -> bool:
+    def is_valid_move(self, piece: Piece, loc: Square) -> bool:
         if piece.type != Type.PAWN:
             return not self.is_own(piece, loc)
 
@@ -86,7 +87,7 @@ class Engine:
         if self.ep_candidate is None or abs(piece.loc - self.ep_candidate.loc) != 8:
             return False
 
-        if (loc >> 3) != (self.ep_candidate.loc >> 3):
+        if loc.file != self.ep_candidate.loc.file:
             return False
 
         # Check whether ep_candidate is can be taken without check
@@ -97,7 +98,7 @@ class Engine:
             return False
         return True
 
-    def does_blocks_check(self, piece: Piece, loc: int) -> bool:
+    def does_blocks_check(self, piece: Piece, loc: Square) -> bool:
         king = self.board.get_king(piece.color)
 
         if king not in self.pinned_or_checked:
@@ -131,15 +132,13 @@ class Engine:
             return False
 
         if check_dir[0] != 0:
-            t = ((loc >> 3) - (attacker.loc >> 3)) / (
-                (king.loc >> 3) - (attacker.loc >> 3)
-            )
+            t = (loc.file - attacker.loc.file) / (king.loc.file - attacker.loc.file)
         else:
-            t = ((loc & 7) - (attacker.loc & 7)) / ((king.loc & 7) - (attacker.loc & 7))
+            t = (loc.rank - attacker.loc.rank) / (king.loc.rank - attacker.loc.rank)
 
         return 0 < t < 1
 
-    def does_handle_pin(self, piece: Piece, loc: int) -> bool:
+    def does_handle_pin(self, piece: Piece, loc: Square) -> bool:
         if piece.type == Type.KING:
             return True
 
@@ -160,34 +159,35 @@ class Engine:
 
         return move_dir == dir or move_dir == inv_dir
 
-    def is_own(self, piece: Piece, loc: int) -> bool:
+    def is_own(self, piece: Piece, loc: Square) -> bool:
         target = self.board.get_piece(loc)
         return target is not None and target.color == piece.color
 
-    def is_threatened(self, piece: Piece, loc: int) -> bool:
+    def is_threatened(self, piece: Piece, loc: Square) -> bool:
         for attacker in self.fboard.get_attackers(piece.color.other, loc):
             if attacker.type == Type.PAWN:
-                return self.board.is_adj_file(attacker.loc, loc)
+                if self.board.is_adj_file(attacker.loc, loc):
+                    return True
             else:
                 return True
         return False
 
-    def iterate_between(self, src: Piece, dst: Piece) -> Iterator[int]:
+    def iterate_between(self, src: Piece, dst: Piece) -> Iterator[Square]:
         dir = src.is_in_dir(dst.loc)
         if dir is None:
             return
 
         df, dr = dir
-        f, r = src.loc >> 3, src.loc & 7
+        f, r = src.loc.file, src.loc.rank
         while True:
             f += df
             r += dr
-            if not (0 <= f < 8 and 0 <= r < 8):
+            sq = Square.from_coords(f, r)
+            if sq is None:
                 break
-            loc = (f << 3) | r
-            if dst.loc == loc:
+            if dst.loc == sq:
                 break
-            yield loc
+            yield sq
 
     def is_pinning(self, piece: Piece) -> Optional[Piece]:
         other_king = self.board.get_king(piece.color.other)
@@ -233,7 +233,7 @@ class Engine:
                 return None
             self.add_pin(piece, pinned)
 
-    def list_moves(self, piece: Piece) -> list[int]:
+    def list_moves(self, piece: Piece) -> list[Square]:
         return list(Piece.bb_to_loc(piece.moves))
 
     def is_in_check(self, color: Color) -> bool:
@@ -278,7 +278,7 @@ class Engine:
         for p1, p2 in to_be_removed:
             self.remove_pin(p1, p2)
 
-    def handle_pawn_move(self, piece: Piece, loc: int) -> set[Piece]:
+    def handle_pawn_move(self, piece: Piece, loc: Square) -> set[Piece]:
         self.ep_candidate = None
         if piece.type != Type.PAWN:
             return set()
@@ -286,30 +286,26 @@ class Engine:
         recalc_targets: set[Piece] = set()
 
         if self.board.is_adj_file(piece.loc, loc) and self.board.is_empty(loc):
-            ep_loc = (loc & 56) | (piece.loc & 7)
-            ep_candidate = self.board.get_piece(ep_loc)
-            if ep_candidate:
-                self.board.capture(ep_candidate)
-                recalc_targets.add(ep_candidate)
-                recalc_targets.update(self.fboard.get_pattackers(ep_loc))
+            ep_sq = Square.from_coords(loc.file, piece.loc.rank)
+            if ep_sq is not None:
+                ep_candidate = self.board.get_piece(ep_sq)
+                if ep_candidate:
+                    self.board.capture(ep_candidate)
+                    recalc_targets.add(ep_candidate)
+                    recalc_targets.update(self.fboard.get_pattackers(ep_sq))
 
         if abs(piece.loc - loc) == 2:
             self.ep_candidate = piece
-            file, rank = loc >> 3, loc & 7
-            if 0 <= file - 1:
-                target_loc = ((file - 1) << 3) | rank
-                target = self.board.get_piece(target_loc)
-                if target is not None and target.id == Type.PAWN | piece.color.other:
-                    recalc_targets.add(target)
-            if file + 1 < 8:
-                target_loc = ((file + 1) << 3) | rank
-                target = self.board.get_piece(target_loc)
-                if target is not None and target.id == Type.PAWN | piece.color.other:
-                    recalc_targets.add(target)
+            for df in (-1, 1):
+                adj = Square.from_coords(loc.file + df, loc.rank)
+                if adj is not None:
+                    target = self.board.get_piece(adj)
+                    if target is not None and target.id == Type.PAWN | piece.color.other:
+                        recalc_targets.add(target)
 
         return recalc_targets
 
-    def handle_castle(self, piece: Piece, loc: int) -> list[Piece]:
+    def handle_castle(self, piece: Piece, loc: Square) -> list[Piece]:
         if piece.type != Type.KING:
             return []
 
@@ -323,7 +319,7 @@ class Engine:
                 for p in self.board.get_all_pieces(color):
                     self.update_fboard(p)
 
-    def move_piece(self, piece: Piece, loc: int) -> None:
+    def move_piece(self, piece: Piece, loc: Square) -> None:
         target = self.board.get_piece(loc)
 
         recalc_targets = {

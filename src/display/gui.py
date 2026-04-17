@@ -3,6 +3,7 @@ from typing import Optional, cast
 
 from src.board import Board
 from src.piece import Color, Piece
+from src.square import Square
 
 LIGHT_SQUARE = "#F0D9B5"
 DARK_SQUARE = "#B58863"
@@ -78,7 +79,7 @@ class TkDisplay:
         }
         return symbols[piece.notation][piece.color]
 
-    def _draw_board(self, board: Board, highlight: list[int]) -> None:
+    def _draw_board(self, board: Board, highlight: list[Square]) -> None:
         self.canvas.delete("all")
         self.rank_canvas.delete("all")
         self.file_canvas.delete("all")
@@ -171,7 +172,7 @@ class TkDisplay:
         self,
         board: Board,
         side: Color,
-        highlight: Optional[list[int]] = None,
+        highlight: Optional[list[Square]] = None,
     ) -> None:
         self.side = side
         highlight = highlight if highlight is not None else []

@@ -1,4 +1,5 @@
 from .base import Color, Piece, Type
+from ..square import Square
 from .bishop import Bishop
 from .king import King
 from .knight import Knight
@@ -10,6 +11,7 @@ __all__ = [
     "Piece",
     "Color",
     "Type",
+    "Square",
     "Pawn",
     "Knight",
     "Bishop",

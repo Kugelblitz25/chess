@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Generator, Optional
 
+from ..square import Square
 from .base import Piece
 
 
@@ -9,11 +10,8 @@ class King(Piece):
     notation = "K"
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1), (1, 0), (-1, 0), (0, 1), (0, -1)]
 
-    def gen_moves(self) -> Generator[int, Optional[bool], None]:
-        rank = self.loc & 7
-        file = self.loc >> 3
+    def gen_moves(self) -> Generator[Square, Optional[bool], None]:
         for df, dr in self.directions:
-            f = file + df
-            r = rank + dr
-            if self.is_in_bounds(f, r):
-                yield (f << 3) | r
+            sq = Square.from_coords(self.loc.file + df, self.loc.rank + dr)
+            if sq is not None:
+                yield sq

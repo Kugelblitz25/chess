@@ -4,6 +4,7 @@ from .board import Board
 from .display import UI
 from .engine import Engine
 from .piece import Color, Piece
+from .square import Square
 
 
 class Game:
@@ -21,14 +22,11 @@ class Game:
     def is_end(self) -> bool:
         return self.engine.nmoves(self.turn) == 0
 
-    def notation_to_loc(self, notation: str) -> int:
-        file = ord(notation[0].lower()) - ord("a")
-        rank = int(notation[1])
-        return (file << 3) | (rank - 1)
+    def notation_to_loc(self, notation: str) -> Square:
+        return Square.from_notation(notation)
 
-    def index_to_notation(self, loc: int) -> str:
-        file, rank = loc >> 3, loc & 7
-        return f"{chr(file + ord('a'))}{rank + 1}"
+    def index_to_notation(self, loc: Square) -> str:
+        return str(loc)
 
     def get_file_and_rank(self) -> int:
         while True:
@@ -55,7 +53,7 @@ class Game:
                 self.display.show_err("Invalid input. Enter exit or restart")
                 continue
 
-    def list_moves(self, loc: int) -> list[int]:
+    def list_moves(self, loc: Square) -> list[Square]:
         piece = self.engine.get_piece(loc)
 
         if piece is None:
@@ -79,7 +77,7 @@ class Game:
 
     def run(self) -> None:
         self.display.show_board(self.engine.get_board(), self.turn)
-        moves: list[int] = []
+        moves: list[Square] = []
         cur_selected: Optional[Piece] = None
 
         while True:
@@ -100,14 +98,16 @@ class Game:
                 else:
                     break
 
-            loc = self.get_file_and_rank()
-            if loc == -1:
+            raw = self.get_file_and_rank()
+            if raw == -1:
                 break
-            elif loc < -1:
+            elif raw < -1:
                 moves = []
                 cur_selected = None
                 self.display.show_err("Enter valid command.")
+                continue
 
+            loc = Square(raw)
             if len(moves) == 0:
                 moves = self.list_moves(loc)
                 if len(moves) > 0:
