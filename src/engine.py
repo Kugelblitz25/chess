@@ -167,7 +167,8 @@ class Engine:
     def is_threatened(self, piece: Piece, loc: int) -> bool:
         for attacker in self.fboard.get_attackers(piece.color.other, loc):
             if attacker.type == Type.PAWN:
-                return self.board.is_adj_file(attacker.loc, loc)
+                if self.board.is_adj_file(attacker.loc, loc):
+                    return True
             else:
                 return True
         return False
@@ -240,10 +241,9 @@ class Engine:
         cheked_by: list[Piece] = []
         king = self.board.get_king(color)
         for attacker in self.fboard.get_attackers(king.color.other, king.loc):
-            if attacker.type == Type.PAWN and self.board.is_adj_file(
-                king.loc, attacker.loc
-            ):
-                cheked_by.append(attacker)
+            if attacker.type == Type.PAWN:
+                if self.board.is_adj_file(king.loc, attacker.loc):
+                    cheked_by.append(attacker)
             else:
                 cheked_by.append(attacker)
         if len(cheked_by) > 0:

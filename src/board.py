@@ -28,7 +28,6 @@ class AttackBoard:
 class Board:
     def __init__(self, size: int = 64) -> None:
         self.board: list[Piece | None] = [None] * size
-        self.ep_candidate: Optional[Piece] = None
         self.pinned: list[Piece] = []
         self.pieces: list[list[Piece]] = [[] for _ in range(2 * max(Type))]
 
