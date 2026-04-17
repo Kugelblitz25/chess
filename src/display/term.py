@@ -1,5 +1,6 @@
 from src.board import Board
 from src.piece import Color, Piece
+from src.square import Square
 
 LIGHT_BG = "\033[48;5;215m"
 DARK_BG = "\033[48;5;94m"
@@ -46,7 +47,7 @@ class TermDisplay:
         self,
         board: Board,
         side: Color = Color.WHITE,
-        highlight: list[int] | None = None,
+        highlight: list[Square] | None = None,
     ) -> None:
         if highlight is None:
             highlight = []

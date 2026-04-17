@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import IntEnum
-from typing import Any, Generator, Iterator, Optional
+from typing import Any, ClassVar, Generator, Iterator, Optional
+
+from ..square import Square
 
 
 class Color(IntEnum):
@@ -32,8 +34,8 @@ def sign(n: int) -> int:
 @dataclass(eq=False)
 class Piece(ABC):
     id: int
-    loc: int
-    notation: str = field(init=False)
+    loc: Square
+    notation: ClassVar[str]
     moves: int = field(init=False, default=0)
     ctrls: int = field(init=False, default=0)
     captured: bool = False
@@ -62,11 +64,13 @@ class Piece(ABC):
 
     @classmethod
     def get_type_from_notation(cls, notation: str) -> Type:
+        if notation.upper() not in NOT_MAP:
+            raise ValueError("Invalid Notation")
         pclass = NOT_MAP[notation.upper()]
         return Type[pclass.__name__.upper()]
 
     @classmethod
-    def from_notation(cls, notation: str, loc: int) -> "Piece":
+    def from_notation(cls, notation: str, loc: Square) -> "Piece":
         if notation.upper() not in NOT_MAP:
             raise ValueError("Invalid Notation")
         piece_class = NOT_MAP[notation.upper()]
@@ -75,10 +79,10 @@ class Piece(ABC):
         return piece_class(ptype | color, loc)
 
     @classmethod
-    def bb_to_loc(cls, bb: int) -> Iterator[int]:
+    def bb_to_loc(cls, bb: int) -> Iterator[Square]:
         while bb > 0:
             lsb = bb & -bb
-            yield lsb.bit_length() - 1
+            yield Square(lsb.bit_length() - 1)
             bb ^= lsb
 
     def to_notation(self) -> str:
@@ -88,14 +92,14 @@ class Piece(ABC):
             return self.notation.upper()
 
     @abstractmethod
-    def gen_moves(self) -> Generator[int, Optional[bool], None]:
+    def gen_moves(self) -> Generator[Square, Optional[bool], None]:
         pass
 
-    def move(self, loc: int) -> None:
+    def move(self, loc: Square) -> None:
         self.loc = loc
         self.has_moved = True
 
-    def is_in_dir(self, loc: int) -> Optional[tuple[int, int]]:
+    def is_in_dir(self, loc: Square) -> Optional[tuple[int, int]]:
         dst_file, dst_rank = loc >> 3, loc & 7
         src_file, src_rank = self.loc >> 3, self.loc & 7
         df, dr = dst_file - src_file, dst_rank - src_rank
@@ -103,8 +107,3 @@ class Piece(ABC):
             if f * dr - r * df == 0 and f * df + r * dr > 0:
                 return (f, r)
         return None
-
-    def is_in_bounds(self, file: int, rank: int) -> bool:
-        if not (0 <= file < 8 and 0 <= rank < 8):
-            return False
-        return True

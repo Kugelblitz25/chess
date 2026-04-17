@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Generator, Optional
 
+from ..square import Square
 from .base import Piece
 
 
@@ -9,18 +10,12 @@ class Bishop(Piece):
     notation = "B"
     directions = [(1, 1), (1, -1), (-1, 1), (-1, -1)]
 
-    def gen_moves(self) -> Generator[int, Optional[bool], None]:
-        rank = self.loc & 7
-        file = self.loc >> 3
-
+    def gen_moves(self) -> Generator[Square, Optional[bool], None]:
         for df, dr in self.directions:
-            f, r = file, rank
-            while True:
-                f += df
-                r += dr
-                if not self.is_in_bounds(f, r):
-                    break
-                stp = yield (f << 3) | r
+            sq: Square = self.loc
+            while (next_sq := sq.move_dir(df, dr)) is not None:
+                stp = yield next_sq
+                sq = next_sq
                 if stp:
-                    yield -1  # Quirk of Generator
+                    yield Square(0)  # consumed by generator.send(); never seen by for-loop
                     break
