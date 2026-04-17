@@ -345,5 +345,8 @@ class Engine:
         for p in recalc_targets:
             self.update_fboard(p)
 
+        for color in Color:
+            self.update_fboard(self.board.get_king(color))
+
         self.handle_checks()
         self.filter_pins()
