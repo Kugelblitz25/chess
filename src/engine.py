@@ -272,8 +272,9 @@ class Engine:
                 continue
             if checked_by[0].captured:
                 to_be_removed.append((checked_by[0], piece))
+                continue
             pinned = self.is_pinning(checked_by[0])
-            if piece in self.pinned_or_checked and not pinned:
+            if not pinned:
                 to_be_removed.append((checked_by[0], piece))
         for p1, p2 in to_be_removed:
             self.remove_pin(p1, p2)
