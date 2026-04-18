@@ -40,7 +40,7 @@ class Piece(ABC):
     ctrls: int = field(init=False, default=0)
     captured: bool = False
     has_moved: bool = False
-    directions: list[tuple[int, int]] = field(init=False)
+    directions: ClassVar[list[tuple[int, int]]]
 
     @property
     def color(self) -> Color:
